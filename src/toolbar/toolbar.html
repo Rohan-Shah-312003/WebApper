@@ -1,280 +1,259 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'" />
-  <title>Toolbar</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'"
+    />
+    <title>Toolbar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    :root {
-      --bg: #1c1c22;
-      --bg2: #26262e;
-      --border: rgba(255,255,255,0.08);
-      --text: #e0e0ec;
-      --text2: #8888aa;
-      --accent: #6366f1;
-      --btn-bg: rgba(255,255,255,0.06);
-      --btn-hover: rgba(255,255,255,0.12);
-      --btn-active: rgba(255,255,255,0.18);
-      --radius: 7px;
-    }
+      :root {
+        --bg: #1c1c22;
+        --bg2: #26262e;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #e0e0ec;
+        --text2: #8888aa;
+        --btn-hover: rgba(255, 255, 255, 0.1);
+        --btn-active: rgba(255, 255, 255, 0.18);
+        --radius: 7px;
+      }
 
-    html, body {
-      width: 100%;
-      height: 44px;
-      overflow: hidden;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      user-select: none;
-    }
+      html,
+      body {
+        width: 100%;
+        height: 44px;
+        overflow: hidden;
+        font-family: "DM Sans", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+      }
 
-    .toolbar {
-      display: flex;
-      align-items: center;
-      height: 44px;
-      padding: 0 10px 0 80px; /* 80px left = space for traffic lights */
-      gap: 6px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg);
-      -webkit-app-region: drag;
-      position: relative;
-    }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        height: 44px;
+        padding: 0 14px 0 80px; /* 80px clears macOS traffic lights */
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+        -webkit-app-region: drag;
+        position: relative;
+      }
 
-    /* ── Nav buttons ── */
-    .nav-group {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      -webkit-app-region: no-drag;
-      flex-shrink: 0;
-    }
+      /* subtle shadow that bleeds into the website below */
+      .toolbar::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        right: 0;
+        height: 8px;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.15),
+          transparent
+        );
+        pointer-events: none;
+      }
 
-    .btn {
-      width: 28px;
-      height: 28px;
-      border-radius: var(--radius);
-      border: none;
-      background: none;
-      color: var(--text2);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.12s, color 0.12s;
-      flex-shrink: 0;
-    }
-    .btn:hover { background: var(--btn-hover); color: var(--text); }
-    .btn:active { background: var(--btn-active); }
-    .btn:disabled { opacity: 0.3; cursor: default; }
-    .btn:disabled:hover { background: none; color: var(--text2); }
+      /* ── Reload button ── */
+      .btn-reload {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius);
+        border: none;
+        background: none;
+        color: var(--text2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        -webkit-app-region: no-drag;
+        transition:
+          background 0.12s,
+          color 0.12s;
+      }
+      .btn-reload:hover {
+        background: var(--btn-hover);
+        color: var(--text);
+      }
+      .btn-reload:active {
+        background: var(--btn-active);
+      }
 
-    /* ── App identity chip ── */
-    .app-chip {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 4px 10px 4px 6px;
-      border-radius: 20px;
-      background: var(--btn-bg);
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-      max-width: 180px;
-    }
-
-    .app-icon {
-      width: 20px;
-      height: 20px;
-      border-radius: 5px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      flex-shrink: 0;
-      overflow: hidden;
-    }
-    .app-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 4px;
-    }
-
-    .app-name {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* ── URL bar ── */
-    .url-bar-wrap {
-      flex: 1;
-      min-width: 0;
-      -webkit-app-region: no-drag;
-      position: relative;
-    }
-
-    .url-bar {
-      width: 100%;
-      height: 28px;
-      padding: 0 10px 0 10px;
-      border-radius: var(--radius);
-      border: 1px solid transparent;
-      background: var(--bg2);
-      color: var(--text2);
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 12px;
-      outline: none;
-      cursor: default;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      transition: border-color 0.15s, color 0.15s;
-      pointer-events: none; /* read-only display, not a real input */
-    }
-
-    /* ── Mode badge ── */
-    .mode-badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 100px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-    }
-    .badge-standard { background: rgba(99,102,241,0.18); color: #818cf8; }
-    .badge-tabbed   { background: rgba(34,197,94,0.18); color: #4ade80; }
-    .badge-incognito { background: rgba(251,191,36,0.18); color: #fbbf24; }
-
-    /* ── Spinner / reload ── */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinning { animation: spin 0.7s linear infinite; }
-
-    /* ── Separator ── */
-    .sep {
-      width: 1px;
-      height: 18px;
-      background: var(--border);
-      flex-shrink: 0;
-      margin: 0 2px;
-    }
-
-    /* ── Bottom edge gradient to blend into website ── */
-    .toolbar::after {
-      content: '';
-      position: absolute;
-      bottom: -8px;
-      left: 0; right: 0;
-      height: 8px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.18), transparent);
-      pointer-events: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="toolbar">
-    <!-- Nav -->
-    <div class="nav-group">
-      <button class="btn" id="btnBack" title="Back" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-      </button>
-      <button class="btn" id="btnForward" title="Forward" disabled>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
-      <button class="btn" id="btnReload" title="Reload">
-        <svg id="reloadIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/>
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>
-      </button>
-      <button class="btn" id="btnHome" title="Go Home">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
-      </button>
-    </div>
-
-    <div class="sep"></div>
-
-    <!-- App identity -->
-    <div class="app-chip" id="appChip">
-      <div class="app-icon" id="appIcon"></div>
-      <span class="app-name" id="appName"></span>
-    </div>
-
-    <!-- URL display -->
-    <div class="url-bar-wrap">
-      <div class="url-bar" id="urlBar"></div>
-    </div>
-
-    <!-- Mode badge -->
-    <span class="mode-badge" id="modeBadge"></span>
-  </div>
-
-  <script>
-    const params = new URLSearchParams(location.search);
-    const appId   = params.get('appId') || '';
-    const name    = params.get('name')  || 'App';
-    const homeUrl = params.get('url')   || '';
-    const icon    = params.get('icon')  || '🌐';
-    const mode    = params.get('mode')  || 'standard';
-    const iconData = params.get('iconData') || null;
-
-    // Populate static fields
-    document.getElementById('appName').textContent = name;
-
-    const iconEl = document.getElementById('appIcon');
-    if (iconData) {
-      iconEl.innerHTML = `<img src="${iconData}" alt="${name}" />`;
-    } else {
-      iconEl.textContent = icon;
-    }
-
-    const badge = document.getElementById('modeBadge');
-    badge.textContent = mode;
-    badge.className = `mode-badge badge-${mode}`;
-
-    document.getElementById('urlBar').textContent = homeUrl;
-
-    // Wire up buttons
-    const btnBack    = document.getElementById('btnBack');
-    const btnForward = document.getElementById('btnForward');
-    const btnReload  = document.getElementById('btnReload');
-    const btnHome    = document.getElementById('btnHome');
-    const reloadIcon = document.getElementById('reloadIcon');
-
-    btnBack.addEventListener('click',    () => window.toolbar.back(appId));
-    btnForward.addEventListener('click', () => window.toolbar.forward(appId));
-    btnReload.addEventListener('click',  () => window.toolbar.reload(appId));
-    btnHome.addEventListener('click',    () => window.toolbar.home(appId));
-
-    // Listen for updates from main process
-    window.toolbar.onUpdate(({ url, canBack, canForward, loading }) => {
-      if (url !== undefined)      document.getElementById('urlBar').textContent = url;
-      if (canBack !== undefined)  btnBack.disabled = !canBack;
-      if (canForward !== undefined) btnForward.disabled = !canForward;
-      if (loading !== undefined) {
-        if (loading) {
-          reloadIcon.classList.add('spinning');
-        } else {
-          reloadIcon.classList.remove('spinning');
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
       }
-    });
-  </script>
-</body>
+      .spinning {
+        animation: spin 0.7s linear infinite;
+      }
+
+      /* ── Centre: app chip ── */
+      .center {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        -webkit-app-region: drag;
+      }
+
+      .app-chip {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 12px 4px 7px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.06);
+        max-width: 260px;
+        pointer-events: none;
+      }
+
+      .app-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .app-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 4px;
+      }
+
+      .app-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Right: mode badge ── */
+      .right {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+      }
+
+      .mode-badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 100px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        -webkit-app-region: no-drag;
+      }
+      .badge-standard {
+        background: rgba(99, 102, 241, 0.18);
+        color: #818cf8;
+      }
+      .badge-tabbed {
+        background: rgba(34, 197, 94, 0.18);
+        color: #4ade80;
+      }
+      .badge-incognito {
+        background: rgba(251, 191, 36, 0.18);
+        color: #fbbf24;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <!-- Left: reload -->
+      <button class="btn-reload" id="btnReload" title="Reload">
+        <svg
+          id="reloadIcon"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+      </button>
+
+      <!-- Centre: icon + name -->
+      <!-- <div class="center">
+        <div class="app-chip">
+          <div class="app-icon" id="appIcon"></div>
+          <span class="app-name" id="appName"></span>
+        </div>
+      </div> -->
+
+      <!-- Right: mode badge -->
+      <div class="right">
+        <span class="mode-badge" id="modeBadge"></span>
+      </div>
+    </div>
+
+    <script>
+      const reloadIcon = document.getElementById("reloadIcon");
+      const btnReload = document.getElementById("btnReload");
+      const appIconEl = document.getElementById("appIcon");
+      const appNameEl = document.getElementById("appName");
+      const badgeEl = document.getElementById("modeBadge");
+
+      // ── Fetch app info from main process via IPC (no URL param length limits) ──
+      window.toolbar.getInfo().then((info) => {
+        if (!info) return;
+
+        // Name
+        appNameEl.textContent = info.name || "App";
+
+        // Icon: prefer uploaded image, fall back to emoji
+        if (info.iconDataUrl) {
+          appIconEl.innerHTML = `<img src="${info.iconDataUrl}" alt="${info.name}" />`;
+        } else {
+          appIconEl.textContent = info.icon || "🌐";
+        }
+
+        // Mode badge
+        const mode = info.mode || "standard";
+        badgeEl.textContent = mode;
+        badgeEl.className = `mode-badge badge-${mode}`;
+
+        // Wire reload now that we have the appId
+        btnReload.addEventListener("click", () =>
+          window.toolbar.reload(info.appId),
+        );
+      });
+
+      // ── Loading spinner ────────────────────────────────────────────────────────
+      window.toolbar.onUpdate(({ loading }) => {
+        if (loading === true) reloadIcon.classList.add("spinning");
+        if (loading === false) reloadIcon.classList.remove("spinning");
+      });
+    </script>
+  </body>
 </html>
