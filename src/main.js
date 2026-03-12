@@ -1,6 +1,7 @@
 const { app, BrowserWindow, WebContentsView, ipcMain, shell, nativeImage, dialog, Menu } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const { applyToPartition, applyToDefaultSession } = require('./adblocker');
 
 // ── Storage ────────────────────────────────────────────────────────────────────
 const DATA_PATH = path.join(app.getPath('userData'), 'webapps.json');
@@ -103,6 +104,9 @@ function launchWebApp(webApp) {
   // BrowserWindow — addChildView is available in Electron 29+.
   win.contentView.addChildView(siteView);
 
+  // Apply ad blocker to this app's session partition
+  applyToPartition(isIncognito ? `incognito:${webApp.id}` : `persist:webapp_${webApp.id}`);
+
   function layout() {
     const [w, h] = win.getContentSize();
     siteView.setBounds({ x: 0, y: TOOLBAR_H, width: w, height: Math.max(0, h - TOOLBAR_H) });
@@ -134,7 +138,15 @@ function launchWebApp(webApp) {
   siteView.webContents.on('page-title-updated',   (_, t)   => { if (!win.isDestroyed()) win.setTitle(t || webApp.name); });
 
   // ── 5. Link routing ───────────────────────────────────────────────────────
+  // Block pop-up windows — ads love window.open()
   siteView.webContents.setWindowOpenHandler(({ url }) => {
+    // Always deny pop-ups from ad domains
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '');
+      const { BLOCKED_DOMAINS } = require('./adblocker');
+      if (BLOCKED_DOMAINS.has(host)) return { action: 'deny' };
+    } catch {}
+
     try {
       const base = new URL(webApp.url);
       const dest = new URL(url);
@@ -214,6 +226,7 @@ ipcMain.handle('dialog:pickImage', async () => {
 
 // ── App lifecycle ──────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  applyToDefaultSession();
   createMainWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

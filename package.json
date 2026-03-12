@@ -12,10 +12,16 @@
   "build": {
     "appId": "com.webapper.app",
     "productName": "Webapper",
-    "directories": { "output": "dist" },
-    "mac": { "category": "public.app-category.productivity" },
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
     "win": {},
-    "linux": { "category": "Utility" }
+    "linux": {
+      "category": "Utility"
+    }
   },
   "devDependencies": {
     "electron": "^31.0.0",
