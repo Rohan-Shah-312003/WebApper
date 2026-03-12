@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'" />
+  <title>Webapper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="url(#grad)"/>
+          <path d="M7 14C7 10.134 10.134 7 14 7V7C17.866 7 21 10.134 21 14V14C21 17.866 17.866 21 14 21H7V14Z" fill="white" fill-opacity="0.9"/>
+          <circle cx="14" cy="14" r="3" fill="url(#grad)"/>
+          <defs>
+            <linearGradient id="grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1"/>
+              <stop offset="1" stop-color="#8b5cf6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">Webapper</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="library">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        Library
+      </button>
+      <button class="nav-item" data-view="gallery">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+        </svg>
+        Gallery
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="btn-new" id="btnNewApp">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New App
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <!-- Library view -->
+    <div class="view active" id="view-library">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">My Apps</h1>
+          <p class="view-subtitle">Your personal collection of web apps</p>
+        </div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search apps…" />
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="standard">Standard</button>
+        <button class="filter-btn" data-filter="tabbed">Tabbed</button>
+        <button class="filter-btn" data-filter="incognito">Incognito</button>
+      </div>
+
+      <div class="app-grid" id="appGrid">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="empty-icon">🌐</div>
+        <h3>No apps yet</h3>
+        <p>Turn any website into a standalone desktop app.</p>
+        <button class="btn-primary" id="btnNewAppEmpty">Create your first app</button>
+      </div>
+    </div>
+
+    <!-- Gallery view -->
+    <div class="view" id="view-gallery">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">App Gallery</h1>
+          <p class="view-subtitle">Popular apps ready to add in one click</p>
+        </div>
+      </div>
+      <div class="gallery-grid" id="galleryGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Create/Edit modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">New App</h2>
+        <button class="modal-close" id="modalClose">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Icon picker -->
+        <div class="icon-section">
+          <div class="icon-preview" id="iconPreview">
+            <span id="iconEmoji">🌐</span>
+            <img id="iconImg" style="display:none" />
+          </div>
+          <div class="icon-actions">
+            <button class="btn-ghost" id="btnPickIcon">Upload Icon</button>
+            <button class="btn-ghost" id="btnFetchFavicon">Fetch Favicon</button>
+          </div>
+        </div>
+
+        <!-- Fields -->
+        <div class="field-group">
+          <label class="field-label">Website URL</label>
+          <input type="url" id="fieldUrl" class="field-input" placeholder="https://example.com" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">App Name</label>
+          <input type="text" id="fieldName" class="field-input" placeholder="My App" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Mode</label>
+          <div class="mode-selector">
+            <button class="mode-btn active" data-mode="standard">
+              <span class="mode-icon">⬜</span>
+              <span class="mode-label">Standard</span>
+              <span class="mode-desc">Single focused window</span>
+            </button>
+            <button class="mode-btn" data-mode="tabbed">
+              <span class="mode-icon">🗂</span>
+              <span class="mode-label">Tabbed</span>
+              <span class="mode-desc">Multiple tabs</span>
+            </button>
+            <button class="mode-btn" data-mode="incognito">
+              <span class="mode-icon">🕶</span>
+              <span class="mode-label">Incognito</span>
+              <span class="mode-desc">No session saved</span>
+            </button>
+          </div>
+        </div>
+
+        <details class="advanced-section">
+          <summary class="advanced-toggle">Advanced options</summary>
+          <div class="advanced-body">
+            <div class="field-group">
+              <label class="field-label">Allowed domains (one per line)</label>
+              <textarea id="fieldWhitelist" class="field-input field-textarea" placeholder="google.com&#10;accounts.google.com"></textarea>
+              <span class="field-hint">External links matching these domains stay in-app. Others open in your browser.</span>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">Window width</label>
+                <input type="number" id="fieldWidth" class="field-input" value="1200" min="400" />
+              </div>
+              <div class="field-group">
+                <label class="field-label">Window height</label>
+                <input type="number" id="fieldHeight" class="field-input" value="800" min="300" />
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-ghost" id="btnCancel">Cancel</button>
+        <button class="btn-primary" id="btnSave">Create App</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div class="context-menu" id="contextMenu" style="display:none">
+    <button class="ctx-item" id="ctxLaunch">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Launch
+    </button>
+    <button class="ctx-item" id="ctxEdit">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit
+    </button>
+    <div class="ctx-sep"></div>
+    <button class="ctx-item ctx-danger" id="ctxDelete">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      Delete
+    </button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

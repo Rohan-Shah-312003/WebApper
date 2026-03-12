@@ -1,0 +1,24 @@
+{
+  "name": "webapper",
+  "version": "1.0.0",
+  "description": "Turn any website into a standalone desktop app",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.webapper.app",
+    "productName": "Webapper",
+    "directories": { "output": "dist" },
+    "mac": { "category": "public.app-category.productivity" },
+    "win": {},
+    "linux": { "category": "Utility" }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
