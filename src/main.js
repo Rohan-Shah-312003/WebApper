@@ -30,8 +30,6 @@ function saveApps(apps) {
 let mainWindow = null;
 const launchedWindows = new Map();
 const TOOLBAR_H = 44;
-
-// Toolbar info keyed by appId — single shared IPC handler reads from here
 const toolbarInfoStore = new Map();
 
 // ── Main window ────────────────────────────────────────────────────────────────
@@ -99,7 +97,7 @@ function createMainWindow() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-// ── Ad-domain check ───────────────────────────────────────────────────────────
+// ── Ad-domain check ────────────────────────────────────────────────────────────
 function isAdDomain(url) {
   try {
     const { BLOCKED_DOMAINS } = require("./adblocker");
@@ -130,7 +128,6 @@ function launchWebApp(webApp) {
   const winW = webApp.windowWidth || 1280;
   const winH = webApp.windowHeight || 800;
 
-  // Apply ad blocker before any requests fire
   applyToPartition(partition);
 
   // ── 1. Shell window ───────────────────────────────────────────────────────
@@ -157,8 +154,6 @@ function launchWebApp(webApp) {
     } catch {}
   }
 
-  // Store info for the shared getInfo handler, pass appId in query string
-  // so toolbar.html has it synchronously without waiting for async IPC
   toolbarInfoStore.set(webApp.id, {
     appId: webApp.id,
     name: webApp.name,
@@ -171,7 +166,7 @@ function launchWebApp(webApp) {
     query: { appId: webApp.id },
   });
 
-  // ── 2. WebContentsView ────────────────────────────────────────────────────
+  // ── 2. WebContentsView (the actual site) ──────────────────────────────────
   const siteView = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "webapp-preload.js"),
@@ -198,7 +193,7 @@ function launchWebApp(webApp) {
 
   siteView.webContents.loadURL(webApp.url);
 
-  // ── 3. Toolbar button IPC ─────────────────────────────────────────────────
+  // ── 3. Toolbar IPC ────────────────────────────────────────────────────────
   ipcMain.on(`toolbar:reload:${webApp.id}`, () => {
     if (!siteView.webContents.isDestroyed()) siteView.webContents.reload();
   });
@@ -213,7 +208,7 @@ function launchWebApp(webApp) {
       siteView.webContents.loadURL(webApp.url);
   });
 
-  // ── 4. Push nav state to toolbar ─────────────────────────────────────────
+  // ── 4. Toolbar nav-state push ─────────────────────────────────────────────
   function pushToolbar(extra = {}) {
     if (win.isDestroyed()) return;
     win.webContents.send("toolbar:update", {
@@ -240,156 +235,255 @@ function launchWebApp(webApp) {
 
   // ── 5. Popup / OAuth handling ─────────────────────────────────────────────
   //
-  // KEY FACTS about Google OAuth / Notion sign-in:
+  // We intercept ALL window.open() calls via setWindowOpenHandler, always
+  // returning { action: "deny" }, then manually decide what to do:
   //
-  //   A) window.open() is called by the site → setWindowOpenHandler fires
-  //   B) We MUST return { action: "allow" } so Electron creates the window
-  //      itself — this preserves window.opener in the popup, which is
-  //      required for postMessage to flow back to the signing-in page.
-  //   C) A manually-created BrowserWindow (new BrowserWindow + loadURL)
-  //      has NO opener relationship → postMessage never arrives → Claude/
-  //      Notion never know the login completed → stuck forever.
-  //   D) We pass overrideBrowserWindowOptions with the SAME partition so
-  //      the popup shares cookies/session with the main site view.
-  //   E) For plain external links that aren't auth flows, did-create-window
-  //      closes the popup and opens the system browser instead.
+  //   • Ad domain          → drop silently
+  //   • Same-origin link   → navigate siteView in place
+  //   • Auth / OAuth URL   → open a controlled BrowserWindow popup (show:true,
+  //                          correct partition, no blank window problem)
+  //   • Everything else    → open in OS browser
   //
-  // Notion extra: Notion's Google OAuth popup closes itself after the user
-  //   clicks Allow. The app detects it via polling popup.closed. When the
-  //   popup closes we reload siteView so Notion picks up the new session.
+  // Why NOT use action:"allow" + overrideBrowserWindowOptions:
+  //   - Electron-created popups can render blank because show:true isn't
+  //     set by default and can't be overridden via overrideBrowserWindowOptions
+  //     in all Electron versions.
+  //   - We can't fully control webPreferences (partition, sandbox) that way.
+  //   - Google sign-in detects missing features and shows an error page.
+  //
+  // For the OAuth redirect (Google → notion.so?code=...) we watch
+  // did-navigate on the popup and reload siteView when it lands on the app
+  // domain. postMessage is NOT required — Notion uses the redirect flow.
 
-  // Hostnames that must always open as a popup (OAuth providers).
-  // These must never be swallowed by the same-origin in-place navigation.
-  const ALWAYS_POPUP_HOSTS = [
+  // Guard: siteView.webContents can become undefined when parent win closes
+  function siteViewAlive() {
+    try {
+      return !!(
+        siteView &&
+        siteView.webContents &&
+        !siteView.webContents.isDestroyed()
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  // Domains we open as a controlled auth popup (not OS browser)
+  const AUTH_HOSTS = [
     "accounts.google.com",
     "accounts.youtube.com",
     "appleid.apple.com",
     "login.microsoftonline.com",
     "login.live.com",
     "github.com",
+    "notion.so", // Notion opens OAuth popups on its own domain
+    "notion.site",
+    "anthropic.com",
+    "claude.ai",
+    "openai.com",
   ];
 
-  function isAlwaysPopup(url) {
+  function isAuthHost(url) {
     try {
       const h = new URL(url).hostname.replace(/^www\./, "");
-      return ALWAYS_POPUP_HOSTS.some((d) => h === d || h.endsWith("." + d));
+      return AUTH_HOSTS.some((d) => h === d || h.endsWith("." + d));
     } catch {
       return false;
     }
   }
 
-  siteView.webContents.setWindowOpenHandler(({ url }) => {
-    // 1. Ad domain → hard deny
-    if (isAdDomain(url)) return { action: "deny" };
+  function isSameOriginOrWhitelisted(url) {
+    try {
+      const base = new URL(webApp.url);
+      const dest = new URL(url);
+      return (
+        dest.hostname === base.hostname ||
+        (webApp.whitelist || []).some((d) => dest.hostname.endsWith(d))
+      );
+    } catch {
+      return false;
+    }
+  }
 
-    // 2. Same-origin / whitelisted → navigate siteView in place ONLY if it's
-    //    not an OAuth provider URL (Notion calls window.open on its own domain
-    //    for some flows, which must stay as a popup, not replace the main view)
-    if (!isAlwaysPopup(url)) {
+  // Track all open auth popups so we know when all are gone
+  const activePopups = new Set();
+  let oauthComplete = false;
+
+  function closeAllPopups() {
+    for (const p of activePopups) {
       try {
-        const base = new URL(webApp.url);
-        const dest = new URL(url);
-        const internal =
-          dest.hostname === base.hostname ||
-          (webApp.whitelist || []).some((d) => dest.hostname.endsWith(d));
-        if (internal) {
-          siteView.webContents.loadURL(url);
-          return { action: "deny" };
-        }
+        if (!p.isDestroyed()) p.close();
       } catch {}
     }
+    activePopups.clear();
+  }
 
-    // 3. Everything else (OAuth, external) → real Electron window, same partition.
-    //    "allow" preserves window.opener → postMessage works.
-    //    did-create-window below decides whether to keep it or send to OS browser.
-    return {
-      action: "allow",
-      overrideBrowserWindowOptions: {
-        width: 520,
-        height: 640,
-        title: "Sign in",
-        webPreferences: {
-          partition,
-          nodeIntegration: false,
-          contextIsolation: true,
-        },
-      },
-    };
-  });
-
-  siteView.webContents.on("did-create-window", (popupWin, details) => {
-    const openedUrl = details.url || "";
-
-    // Decide if this is an auth/OAuth window or just an external link
-    let isAuthWindow = false;
-    try {
-      const h = new URL(openedUrl).hostname.replace(/^www\./, "");
-      isAuthWindow =
-        h.includes("google.") ||
-        h.includes("accounts.") ||
-        h.includes("apple.com") ||
-        h.includes("microsoft.com") ||
-        h.includes("live.com") ||
-        h.includes("github.com") ||
-        h.includes("notion.so") ||
-        h.includes("anthropic.com") ||
-        h.includes("claude.ai") ||
-        h.includes("openai.com") ||
-        openedUrl === "" ||
-        openedUrl === "about:blank";
-    } catch {}
-
-    if (!isAuthWindow) {
-      // Plain external link → system browser, no Electron window
-      popupWin.destroy();
-      if (openedUrl && openedUrl !== "about:blank")
-        shell.openExternal(openedUrl);
-      return;
+  function handlePopupClosed() {
+    console.log(
+      "[popup] closed. remaining:",
+      activePopups.size,
+      "| oauthComplete:",
+      oauthComplete,
+    );
+    if (oauthComplete) return;
+    if (activePopups.size === 0) {
+      // All popups gone without a detected redirect — reload softly so any
+      // completed session (e.g. email sign-in) is picked up.
+      setTimeout(() => {
+        try {
+          if (siteViewAlive()) siteView.webContents.reload();
+        } catch {}
+      }, 600);
     }
+  }
 
-    // AUTH WINDOW — watch for OAuth callback navigating back to app domain
-    // (handles Claude's ?code= callback pattern)
+  function attachOAuthWatcher(popupWin) {
     popupWin.webContents.on("did-navigate", (_, navUrl) => {
+      console.log("[popup] did-navigate:", navUrl);
       try {
-        const dest = new URL(navUrl);
-        const base = new URL(webApp.url);
-        if (
-          dest.hostname === base.hostname ||
-          dest.hostname === base.hostname.replace("www.", "")
-        ) {
-          if (!siteView.webContents.isDestroyed()) {
-            siteView.webContents.loadURL(navUrl);
-          }
+        const appHost = new URL(webApp.url).hostname;
+        const navHost = new URL(navUrl).hostname;
+        const isAppDomain =
+          navHost === appHost || navHost === appHost.replace("www.", "");
+        const isHelperPage =
+          /verifyNoPopupBlocker|googlepopupredirect|loginWithGoogle/i.test(
+            navUrl,
+          );
+        if (isAppDomain && !isHelperPage && !oauthComplete) {
+          oauthComplete = true;
+          console.log("[popup] OAuth complete! Reloading siteView");
           setTimeout(() => {
-            if (!popupWin.isDestroyed()) popupWin.close();
-          }, 500);
+            closeAllPopups();
+            if (siteViewAlive()) siteView.webContents.reload();
+          }, 800);
         }
       } catch {}
     });
+    popupWin.webContents.on("did-fail-load", (_, code, desc, u) => {
+      console.log("[popup] did-fail-load:", code, desc, u);
+    });
+    popupWin.webContents.on("will-navigate", (_, navUrl) => {
+      console.log("[popup] will-navigate:", navUrl);
+    });
+  }
 
-    // Notion pattern: the Google OAuth popup closes itself after the user
-    // clicks Allow. Notion's main page polls popup.closed and then reloads
-    // itself — but since we're in Electron, siteView needs a nudge.
-    // Always reload on popup close so the new session cookies are picked up.
+  // Some apps (e.g. Notion) test for popup support by calling window.open()
+  // on their OWN domain before launching the real OAuth popup. If disposition
+  // is "new-window" we must honour it as a real popup regardless of origin —
+  // otherwise the app thinks popups are blocked and refuses to continue.
+  function mustBePopup(url, disposition) {
+    if (disposition === "new-window" || disposition === "new-tab") return true;
+    return isAuthHost(url);
+  }
+
+  siteView.webContents.setWindowOpenHandler(({ url, disposition }) => {
+    if (!url || url === "about:blank") return { action: "deny" };
+
+    // 1. Ad domain → silently drop
+    if (isAdDomain(url)) return { action: "deny" };
+
+    // 2. Must be a real popup (new-window disposition OR known auth host).
+    //    Return action:"allow" so Electron creates the window with window.opener
+    //    intact — Notion uses postMessage via window.opener to signal auth
+    //    completion back to the main page. We MUST preserve that relationship.
+    if (mustBePopup(url, disposition)) {
+      console.log("[popup] allowing popup (opener preserved):", url);
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          width: 520,
+          height: 700,
+          show: true,
+          backgroundColor: "#ffffff",
+          autoHideMenuBar: true,
+          webPreferences: {
+            partition,
+            nodeIntegration: false,
+            contextIsolation: true,
+          },
+        },
+      };
+    }
+
+    // 3. Same-origin / whitelisted plain link → navigate siteView in place
+    if (isSameOriginOrWhitelisted(url)) {
+      siteView.webContents.loadURL(url);
+      return { action: "deny" };
+    }
+
+    // 4. Everything else → OS browser
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  // did-create-window fires after action:"allow" — attach tracking here
+  siteView.webContents.on("did-create-window", (popupWin, details) => {
+    const openedUrl = details.url || "";
+    console.log("[popup] did-create-window:", openedUrl);
+
+    if (isAdDomain(openedUrl)) {
+      popupWin.destroy();
+      return;
+    }
+
+    popupWin.setMenu(null);
+    activePopups.add(popupWin);
+
+    // Any further popups this window spawns also need opener preserved
+    popupWin.webContents.setWindowOpenHandler(
+      ({ url: childUrl, disposition: d }) => {
+        console.log("[popup] child window.open:", childUrl);
+        if (!childUrl || childUrl === "about:blank") return { action: "deny" };
+        if (isAdDomain(childUrl)) return { action: "deny" };
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            width: 520,
+            height: 700,
+            show: true,
+            backgroundColor: "#ffffff",
+            autoHideMenuBar: true,
+            webPreferences: {
+              partition,
+              nodeIntegration: false,
+              contextIsolation: true,
+            },
+          },
+        };
+      },
+    );
+
+    // Track grandchild popups (Google account chooser etc.)
+    popupWin.webContents.on("did-create-window", (grandchild) => {
+      console.log("[popup] grandchild created");
+      grandchild.setMenu(null);
+      activePopups.add(grandchild);
+      attachOAuthWatcher(grandchild);
+      grandchild.on("closed", () => {
+        activePopups.delete(grandchild);
+        handlePopupClosed();
+      });
+    });
+
+    attachOAuthWatcher(popupWin);
+
     popupWin.on("closed", () => {
-      setTimeout(() => {
-        if (!siteView.webContents.isDestroyed()) {
-          siteView.webContents.reload();
-        }
-      }, 800);
+      activePopups.delete(popupWin);
+      handlePopupClosed();
     });
   });
 
   // ── 6. Scrollbar polish ───────────────────────────────────────────────────
   siteView.webContents.on("did-finish-load", () => {
+    if (!siteViewAlive()) return;
     siteView.webContents
       .insertCSS(
         `
-      ::-webkit-scrollbar { width: 8px; height: 8px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.6); }
-    `,
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.6); }
+      `,
       )
       .catch(() => {});
   });
@@ -421,10 +515,10 @@ function launchWebApp(webApp) {
 
 // ── Global IPC handlers ────────────────────────────────────────────────────────
 
-// Single shared handler — toolbar passes its appId as an argument
-ipcMain.handle("toolbar:getInfo", (_, appId) => {
-  return toolbarInfoStore.get(appId) || null;
-});
+ipcMain.handle(
+  "toolbar:getInfo",
+  (_, appId) => toolbarInfoStore.get(appId) || null,
+);
 
 ipcMain.handle("apps:list", () => loadApps());
 ipcMain.handle("apps:save", (_, apps) => {
