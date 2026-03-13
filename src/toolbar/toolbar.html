@@ -47,13 +47,15 @@
         display: flex;
         align-items: center;
         height: 44px;
+        /* 80px left padding = space for macOS traffic lights */
         padding: 0 14px 0 80px;
-        gap: 8px;
+        gap: 4px;
         border-bottom: 1px solid var(--border);
         background: var(--bg);
         -webkit-app-region: drag;
         position: relative;
       }
+
       .toolbar::after {
         content: "";
         position: absolute;
@@ -70,8 +72,8 @@
       }
 
       .btn {
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         border-radius: var(--radius);
         border: none;
         background: none;
@@ -84,18 +86,27 @@
         -webkit-app-region: no-drag;
         transition:
           background 0.12s,
-          color 0.12s;
+          color 0.12s,
+          opacity 0.12s;
       }
-      .btn:hover {
+      .btn:hover:not(:disabled) {
         background: var(--btn-hover);
         color: var(--text);
       }
-      .btn:active {
+      .btn:active:not(:disabled) {
         background: var(--btn-active);
       }
       .btn:disabled {
-        opacity: 0.3;
+        opacity: 0.28;
         cursor: default;
+      }
+
+      .btn-divider {
+        width: 1px;
+        height: 16px;
+        background: var(--border);
+        margin: 0 4px;
+        flex-shrink: 0;
       }
 
       @keyframes spin {
@@ -136,7 +147,41 @@
   </head>
   <body>
     <div class="toolbar">
-      <!-- Reload — wired immediately, no async wait needed -->
+      <!-- Back -->
+      <button class="btn" id="btnBack" title="Go back" disabled>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+
+      <!-- Forward -->
+      <button class="btn" id="btnForward" title="Go forward" disabled>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+
+      <div class="btn-divider"></div>
+
+      <!-- Reload -->
       <button class="btn" id="btnReload" title="Reload page">
         <svg
           id="reloadIcon"
@@ -160,15 +205,18 @@
     </div>
 
     <script>
+      const btnBack = document.getElementById("btnBack");
+      const btnForward = document.getElementById("btnForward");
       const btnReload = document.getElementById("btnReload");
       const reloadIcon = document.getElementById("reloadIcon");
       const badgeEl = document.getElementById("modeBadge");
 
-      // ── Reload is wired immediately — toolbar-preload already has APP_ID ──
-      // window.toolbar.reload() sends toolbar:reload:<appId> right away.
+      // Wire buttons — toolbar-preload already has APP_ID synchronously
+      btnBack.addEventListener("click", () => window.toolbar.back());
+      btnForward.addEventListener("click", () => window.toolbar.forward());
       btnReload.addEventListener("click", () => window.toolbar.reload());
 
-      // ── Fetch display info (badge only, not needed for button function) ───
+      // Fetch display info for mode badge
       window.toolbar
         .getInfo()
         .then((info) => {
@@ -179,8 +227,10 @@
         })
         .catch(() => {});
 
-      // ── Loading spinner ───────────────────────────────────────────────────
-      window.toolbar.onUpdate(({ loading }) => {
+      // React to nav-state updates pushed from main process
+      window.toolbar.onUpdate(({ canBack, canForward, loading }) => {
+        if (canBack !== undefined) btnBack.disabled = !canBack;
+        if (canForward !== undefined) btnForward.disabled = !canForward;
         if (loading === true) reloadIcon.classList.add("spinning");
         if (loading === false) reloadIcon.classList.remove("spinning");
       });

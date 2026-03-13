@@ -489,6 +489,17 @@ function launchWebApp(webApp) {
   });
 
   // ── 7. Cleanup ────────────────────────────────────────────────────────────
+  win.on("close", () => {
+    // Kill the renderer immediately on close so audio/video/JS stops.
+    // Without this the WebContentsView process keeps running in the background.
+    try {
+      if (siteViewAlive()) {
+        win.contentView.removeChildView(siteView);
+        siteView.webContents.close();
+      }
+    } catch {}
+  });
+
   win.on("closed", () => {
     try {
       const sz = win.getSize ? win.getSize() : [winW, winH];
