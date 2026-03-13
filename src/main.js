@@ -14,7 +14,6 @@ const { applyToPartition, applyToDefaultSession } = require("./adblocker");
 
 // ── Storage ────────────────────────────────────────────────────────────────────
 const DATA_PATH = path.join(app.getPath("userData"), "webapps.json");
-
 function loadApps() {
   try {
     if (fs.existsSync(DATA_PATH))
@@ -28,9 +27,10 @@ function saveApps(apps) {
 
 // ── Globals ────────────────────────────────────────────────────────────────────
 let mainWindow = null;
-const launchedWindows = new Map();
+const launchedWindows = new Map(); // id → BrowserWindow
+const siteViewMap = new Map(); // id → WebContentsView
+const toolbarInfoStore = new Map(); // id → info object
 const TOOLBAR_H = 44;
-const toolbarInfoStore = new Map();
 
 // ── Main window ────────────────────────────────────────────────────────────────
 function createMainWindow() {
@@ -104,12 +104,56 @@ function isAdDomain(url) {
     const host = new URL(url).hostname.replace(/^www\./, "");
     if (BLOCKED_DOMAINS.has(host)) return true;
     const parts = host.split(".");
-    for (let i = 1; i < parts.length - 1; i++) {
+    for (let i = 1; i < parts.length - 1; i++)
       if (BLOCKED_DOMAINS.has(parts.slice(i).join("."))) return true;
-    }
   } catch {}
   return false;
 }
+
+// ── Global toolbar IPC (fixed channel names, id passed as argument) ────────────
+// These are registered ONCE at startup, not per-window.
+ipcMain.on("toolbar:reload", (_, id) => {
+  const sv = siteViewMap.get(id);
+  if (sv && !sv.webContents.isDestroyed()) {
+    try {
+      sv.webContents.reload();
+    } catch {}
+  }
+});
+ipcMain.on("toolbar:back", (_, id) => {
+  const sv = siteViewMap.get(id);
+  if (sv) {
+    try {
+      if (sv.webContents.canGoBack()) sv.webContents.goBack();
+    } catch {}
+  }
+});
+ipcMain.on("toolbar:forward", (_, id) => {
+  const sv = siteViewMap.get(id);
+  if (sv) {
+    try {
+      if (sv.webContents.canGoForward()) sv.webContents.goForward();
+    } catch {}
+  }
+});
+ipcMain.handle("toolbar:getState", (_, id) => {
+  const sv = siteViewMap.get(id);
+  const info = toolbarInfoStore.get(id);
+  if (!sv || sv.webContents.isDestroyed())
+    return {
+      canBack: false,
+      canForward: false,
+      loading: false,
+      title: info?.name || "",
+    };
+  return {
+    canBack: sv.webContents.canGoBack(),
+    canForward: sv.webContents.canGoForward(),
+    loading: sv.webContents.isLoading(),
+    title: sv.webContents.getTitle() || info?.name || "",
+  };
+});
+ipcMain.handle("toolbar:getInfo", (_, id) => toolbarInfoStore.get(id) || null);
 
 // ── Launch a web app window ────────────────────────────────────────────────────
 function launchWebApp(webApp) {
@@ -130,7 +174,7 @@ function launchWebApp(webApp) {
 
   applyToPartition(partition);
 
-  // ── 1. Shell window ───────────────────────────────────────────────────────
+  // ── Shell window ──────────────────────────────────────────────────────────
   const win = new BrowserWindow({
     width: winW,
     height: winH,
@@ -140,6 +184,7 @@ function launchWebApp(webApp) {
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 12, y: 13 },
     backgroundColor: "#1a1a1f",
+    skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, "toolbar-preload.js"),
       contextIsolation: true,
@@ -166,7 +211,7 @@ function launchWebApp(webApp) {
     query: { appId: webApp.id },
   });
 
-  // ── 2. WebContentsView (the actual site) ──────────────────────────────────
+  // ── WebContentsView ───────────────────────────────────────────────────────
   const siteView = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "webapp-preload.js"),
@@ -178,6 +223,7 @@ function launchWebApp(webApp) {
   });
 
   win.contentView.addChildView(siteView);
+  siteViewMap.set(webApp.id, siteView);
 
   function layout() {
     const [w, h] = win.getContentSize();
@@ -190,72 +236,36 @@ function launchWebApp(webApp) {
   }
   layout();
   win.on("resize", layout);
-
   siteView.webContents.loadURL(webApp.url);
 
-  // ── 3. Toolbar IPC ────────────────────────────────────────────────────────
-  ipcMain.on(`toolbar:reload:${webApp.id}`, () => {
-    if (!siteView.webContents.isDestroyed()) siteView.webContents.reload();
-  });
-  ipcMain.on(`toolbar:back:${webApp.id}`, () => {
-    if (siteView.webContents.canGoBack()) siteView.webContents.goBack();
-  });
-  ipcMain.on(`toolbar:forward:${webApp.id}`, () => {
-    if (siteView.webContents.canGoForward()) siteView.webContents.goForward();
-  });
-  ipcMain.on(`toolbar:home:${webApp.id}`, () => {
-    if (!siteView.webContents.isDestroyed())
-      siteView.webContents.loadURL(webApp.url);
-  });
-
-  // ── 4. Toolbar nav-state push ─────────────────────────────────────────────
-  function pushToolbar(extra = {}) {
+  // ── Push toolbar state ────────────────────────────────────────────────────
+  function push(extra = {}) {
     if (win.isDestroyed()) return;
-    win.webContents.send("toolbar:update", {
-      canBack: siteView.webContents.canGoBack(),
-      canForward: siteView.webContents.canGoForward(),
-      ...extra,
-    });
+    try {
+      win.webContents.send("toolbar:state", {
+        canBack: siteView.webContents.canGoBack(),
+        canForward: siteView.webContents.canGoForward(),
+        loading: siteView.webContents.isLoading(),
+        title: siteView.webContents.getTitle() || webApp.name,
+        ...extra,
+      });
+    } catch {}
   }
-  siteView.webContents.on("did-navigate", (_, url) =>
-    pushToolbar({ url, loading: false }),
+
+  siteView.webContents.on("did-navigate", () => push({ loading: false }));
+  siteView.webContents.on("did-navigate-in-page", () =>
+    push({ loading: false }),
   );
-  siteView.webContents.on("did-navigate-in-page", (_, url) =>
-    pushToolbar({ url, loading: false }),
-  );
-  siteView.webContents.on("did-start-loading", () =>
-    pushToolbar({ loading: true }),
-  );
-  siteView.webContents.on("did-stop-loading", () =>
-    pushToolbar({ loading: false }),
-  );
+  siteView.webContents.on("did-start-loading", () => push({ loading: true }));
+  siteView.webContents.on("did-stop-loading", () => push({ loading: false }));
   siteView.webContents.on("page-title-updated", (_, t) => {
+    push({ title: t || webApp.name });
     if (!win.isDestroyed()) win.setTitle(t || webApp.name);
   });
+  // When toolbar HTML itself finishes loading, push current state immediately
+  win.webContents.on("did-finish-load", () => push());
 
-  // ── 5. Popup / OAuth handling ─────────────────────────────────────────────
-  //
-  // We intercept ALL window.open() calls via setWindowOpenHandler, always
-  // returning { action: "deny" }, then manually decide what to do:
-  //
-  //   • Ad domain          → drop silently
-  //   • Same-origin link   → navigate siteView in place
-  //   • Auth / OAuth URL   → open a controlled BrowserWindow popup (show:true,
-  //                          correct partition, no blank window problem)
-  //   • Everything else    → open in OS browser
-  //
-  // Why NOT use action:"allow" + overrideBrowserWindowOptions:
-  //   - Electron-created popups can render blank because show:true isn't
-  //     set by default and can't be overridden via overrideBrowserWindowOptions
-  //     in all Electron versions.
-  //   - We can't fully control webPreferences (partition, sandbox) that way.
-  //   - Google sign-in detects missing features and shows an error page.
-  //
-  // For the OAuth redirect (Google → notion.so?code=...) we watch
-  // did-navigate on the popup and reload siteView when it lands on the app
-  // domain. postMessage is NOT required — Notion uses the redirect flow.
-
-  // Guard: siteView.webContents can become undefined when parent win closes
+  // ── Popup / OAuth handling ────────────────────────────────────────────────
   function siteViewAlive() {
     try {
       return !!(
@@ -268,7 +278,6 @@ function launchWebApp(webApp) {
     }
   }
 
-  // Domains we open as a controlled auth popup (not OS browser)
   const AUTH_HOSTS = [
     "accounts.google.com",
     "accounts.youtube.com",
@@ -276,13 +285,12 @@ function launchWebApp(webApp) {
     "login.microsoftonline.com",
     "login.live.com",
     "github.com",
-    "notion.so", // Notion opens OAuth popups on its own domain
+    "notion.so",
     "notion.site",
     "anthropic.com",
     "claude.ai",
     "openai.com",
   ];
-
   function isAuthHost(url) {
     try {
       const h = new URL(url).hostname.replace(/^www\./, "");
@@ -291,8 +299,7 @@ function launchWebApp(webApp) {
       return false;
     }
   }
-
-  function isSameOriginOrWhitelisted(url) {
+  function isSameOrigin(url) {
     try {
       const base = new URL(webApp.url);
       const dest = new URL(url);
@@ -304,11 +311,16 @@ function launchWebApp(webApp) {
       return false;
     }
   }
+  function mustBePopup(url, disposition) {
+    return (
+      disposition === "new-window" ||
+      disposition === "new-tab" ||
+      isAuthHost(url)
+    );
+  }
 
-  // Track all open auth popups so we know when all are gone
   const activePopups = new Set();
   let oauthComplete = false;
-
   function closeAllPopups() {
     for (const p of activePopups) {
       try {
@@ -317,41 +329,26 @@ function launchWebApp(webApp) {
     }
     activePopups.clear();
   }
-
-  function handlePopupClosed() {
-    console.log(
-      "[popup] closed. remaining:",
-      activePopups.size,
-      "| oauthComplete:",
-      oauthComplete,
-    );
+  function onPopupClosed() {
     if (oauthComplete) return;
-    if (activePopups.size === 0) {
-      // All popups gone without a detected redirect — reload softly so any
-      // completed session (e.g. email sign-in) is picked up.
+    if (activePopups.size === 0)
       setTimeout(() => {
         try {
           if (siteViewAlive()) siteView.webContents.reload();
         } catch {}
       }, 600);
-    }
   }
-
-  function attachOAuthWatcher(popupWin) {
-    popupWin.webContents.on("did-navigate", (_, navUrl) => {
-      console.log("[popup] did-navigate:", navUrl);
+  function watchPopup(pw) {
+    pw.webContents.on("did-navigate", (_, u) => {
       try {
         const appHost = new URL(webApp.url).hostname;
-        const navHost = new URL(navUrl).hostname;
-        const isAppDomain =
+        const navHost = new URL(u).hostname;
+        const onApp =
           navHost === appHost || navHost === appHost.replace("www.", "");
-        const isHelperPage =
-          /verifyNoPopupBlocker|googlepopupredirect|loginWithGoogle/i.test(
-            navUrl,
-          );
-        if (isAppDomain && !isHelperPage && !oauthComplete) {
+        const isHelper =
+          /verifyNoPopupBlocker|googlepopupredirect|loginWithGoogle/i.test(u);
+        if (onApp && !isHelper && !oauthComplete) {
           oauthComplete = true;
-          console.log("[popup] OAuth complete! Reloading siteView");
           setTimeout(() => {
             closeAllPopups();
             if (siteViewAlive()) siteView.webContents.reload();
@@ -359,147 +356,83 @@ function launchWebApp(webApp) {
         }
       } catch {}
     });
-    popupWin.webContents.on("did-fail-load", (_, code, desc, u) => {
-      console.log("[popup] did-fail-load:", code, desc, u);
-    });
-    popupWin.webContents.on("will-navigate", (_, navUrl) => {
-      console.log("[popup] will-navigate:", navUrl);
-    });
   }
-
-  // Some apps (e.g. Notion) test for popup support by calling window.open()
-  // on their OWN domain before launching the real OAuth popup. If disposition
-  // is "new-window" we must honour it as a real popup regardless of origin —
-  // otherwise the app thinks popups are blocked and refuses to continue.
-  function mustBePopup(url, disposition) {
-    if (disposition === "new-window" || disposition === "new-tab") return true;
-    return isAuthHost(url);
-  }
+  const popupOpts = {
+    width: 520,
+    height: 700,
+    show: true,
+    backgroundColor: "#ffffff",
+    autoHideMenuBar: true,
+    webPreferences: {
+      partition,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  };
 
   siteView.webContents.setWindowOpenHandler(({ url, disposition }) => {
     if (!url || url === "about:blank") return { action: "deny" };
-
-    // 1. Ad domain → silently drop
     if (isAdDomain(url)) return { action: "deny" };
-
-    // 2. Must be a real popup (new-window disposition OR known auth host).
-    //    Return action:"allow" so Electron creates the window with window.opener
-    //    intact — Notion uses postMessage via window.opener to signal auth
-    //    completion back to the main page. We MUST preserve that relationship.
-    if (mustBePopup(url, disposition)) {
-      console.log("[popup] allowing popup (opener preserved):", url);
-      return {
-        action: "allow",
-        overrideBrowserWindowOptions: {
-          width: 520,
-          height: 700,
-          show: true,
-          backgroundColor: "#ffffff",
-          autoHideMenuBar: true,
-          webPreferences: {
-            partition,
-            nodeIntegration: false,
-            contextIsolation: true,
-          },
-        },
-      };
-    }
-
-    // 3. Same-origin / whitelisted plain link → navigate siteView in place
-    if (isSameOriginOrWhitelisted(url)) {
+    if (mustBePopup(url, disposition))
+      return { action: "allow", overrideBrowserWindowOptions: popupOpts };
+    if (isSameOrigin(url)) {
       siteView.webContents.loadURL(url);
       return { action: "deny" };
     }
-
-    // 4. Everything else → OS browser
     shell.openExternal(url);
     return { action: "deny" };
   });
 
-  // did-create-window fires after action:"allow" — attach tracking here
-  siteView.webContents.on("did-create-window", (popupWin, details) => {
-    const openedUrl = details.url || "";
-    console.log("[popup] did-create-window:", openedUrl);
-
-    if (isAdDomain(openedUrl)) {
-      popupWin.destroy();
+  siteView.webContents.on("did-create-window", (pw, details) => {
+    if (isAdDomain(details.url || "")) {
+      pw.destroy();
       return;
     }
-
-    popupWin.setMenu(null);
-    activePopups.add(popupWin);
-
-    // Any further popups this window spawns also need opener preserved
-    popupWin.webContents.setWindowOpenHandler(
-      ({ url: childUrl, disposition: d }) => {
-        console.log("[popup] child window.open:", childUrl);
-        if (!childUrl || childUrl === "about:blank") return { action: "deny" };
-        if (isAdDomain(childUrl)) return { action: "deny" };
-        return {
-          action: "allow",
-          overrideBrowserWindowOptions: {
-            width: 520,
-            height: 700,
-            show: true,
-            backgroundColor: "#ffffff",
-            autoHideMenuBar: true,
-            webPreferences: {
-              partition,
-              nodeIntegration: false,
-              contextIsolation: true,
-            },
-          },
-        };
-      },
-    );
-
-    // Track grandchild popups (Google account chooser etc.)
-    popupWin.webContents.on("did-create-window", (grandchild) => {
-      console.log("[popup] grandchild created");
-      grandchild.setMenu(null);
-      activePopups.add(grandchild);
-      attachOAuthWatcher(grandchild);
-      grandchild.on("closed", () => {
-        activePopups.delete(grandchild);
-        handlePopupClosed();
+    pw.setMenu(null);
+    activePopups.add(pw);
+    pw.webContents.setWindowOpenHandler(({ url: u }) => {
+      if (!u || u === "about:blank" || isAdDomain(u)) return { action: "deny" };
+      return { action: "allow", overrideBrowserWindowOptions: popupOpts };
+    });
+    pw.webContents.on("did-create-window", (gc) => {
+      gc.setMenu(null);
+      activePopups.add(gc);
+      watchPopup(gc);
+      gc.on("closed", () => {
+        activePopups.delete(gc);
+        onPopupClosed();
       });
     });
-
-    attachOAuthWatcher(popupWin);
-
-    popupWin.on("closed", () => {
-      activePopups.delete(popupWin);
-      handlePopupClosed();
+    watchPopup(pw);
+    pw.on("closed", () => {
+      activePopups.delete(pw);
+      onPopupClosed();
     });
   });
 
-  // ── 6. Scrollbar polish ───────────────────────────────────────────────────
+  // ── Scrollbar polish ──────────────────────────────────────────────────────
   siteView.webContents.on("did-finish-load", () => {
     if (!siteViewAlive()) return;
     siteView.webContents
       .insertCSS(
         `
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.6); }
-      `,
+      ::-webkit-scrollbar{width:8px;height:8px}
+      ::-webkit-scrollbar-track{background:transparent}
+      ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.35);border-radius:4px}
+      ::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.6)}`,
       )
       .catch(() => {});
   });
 
-  // ── 7. Cleanup ────────────────────────────────────────────────────────────
+  // ── Cleanup ───────────────────────────────────────────────────────────────
   win.on("close", () => {
-    // Kill the renderer immediately on close so audio/video/JS stops.
-    // Without this the WebContentsView process keeps running in the background.
     try {
       if (siteViewAlive()) {
         win.contentView.removeChildView(siteView);
-        siteView.webContents.close();
+        siteView.webContents.destroy();
       }
     } catch {}
   });
-
   win.on("closed", () => {
     try {
       const sz = win.getSize ? win.getSize() : [winW, winH];
@@ -513,31 +446,26 @@ function launchWebApp(webApp) {
       }
     } catch {}
     toolbarInfoStore.delete(webApp.id);
-    ipcMain.removeAllListeners(`toolbar:reload:${webApp.id}`);
-    ipcMain.removeAllListeners(`toolbar:back:${webApp.id}`);
-    ipcMain.removeAllListeners(`toolbar:forward:${webApp.id}`);
-    ipcMain.removeAllListeners(`toolbar:home:${webApp.id}`);
+    siteViewMap.delete(webApp.id);
     launchedWindows.delete(webApp.id);
+    updateDockMenu();
   });
 
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    win.show();
+    updateDockMenu();
+  });
   launchedWindows.set(webApp.id, win);
 }
 
-// ── Global IPC handlers ────────────────────────────────────────────────────────
-
-ipcMain.handle(
-  "toolbar:getInfo",
-  (_, appId) => toolbarInfoStore.get(appId) || null,
-);
-
+// ── App-management IPC ─────────────────────────────────────────────────────────
 ipcMain.handle("apps:list", () => loadApps());
 ipcMain.handle("apps:save", (_, apps) => {
   saveApps(apps);
   return true;
 });
-ipcMain.handle("apps:launch", (_, webApp) => {
-  launchWebApp(webApp);
+ipcMain.handle("apps:launch", (_, wa) => {
+  launchWebApp(wa);
   return true;
 });
 ipcMain.handle("apps:delete", (_, id) => {
@@ -559,7 +487,7 @@ ipcMain.handle("app:fetchFavicon", async (_, url) => {
   }
 });
 ipcMain.handle("dialog:pickImage", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const r = await dialog.showOpenDialog(mainWindow, {
     properties: ["openFile"],
     filters: [
       {
@@ -568,22 +496,62 @@ ipcMain.handle("dialog:pickImage", async () => {
       },
     ],
   });
-  if (result.canceled || !result.filePaths.length) return null;
-  const data = fs.readFileSync(result.filePaths[0]);
-  const ext = path.extname(result.filePaths[0]).slice(1).toLowerCase();
+  if (r.canceled || !r.filePaths.length) return null;
+  const data = fs.readFileSync(r.filePaths[0]);
+  const ext = path.extname(r.filePaths[0]).slice(1).toLowerCase();
   const mime =
     ext === "svg" ? "image/svg+xml" : `image/${ext === "jpg" ? "jpeg" : ext}`;
   return `data:${mime};base64,${data.toString("base64")}`;
 });
 
-// ── App lifecycle ──────────────────────────────────────────────────────────────
+// ── Dock menu ─────────────────────────────────────────────────────────────────
+function updateDockMenu() {
+  if (process.platform !== "darwin" || !app.dock) return;
+  const items = [];
+  for (const [, w] of launchedWindows) {
+    if (!w.isDestroyed())
+      items.push({
+        label: w.getTitle() || "App",
+        click: () => {
+          w.show();
+          w.focus();
+        },
+      });
+  }
+  const open = {
+    label: "Open Webapper",
+    click: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    },
+  };
+  app.dock.setMenu(
+    Menu.buildFromTemplate(
+      items.length ? [...items, { type: "separator" }, open] : [open],
+    ),
+  );
+}
+
+// ── Lifecycle ──────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   applyToDefaultSession();
   createMainWindow();
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-    else if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    } else createMainWindow();
   });
+});
+app.on("before-quit", () => {
+  for (const [, w] of launchedWindows) {
+    try {
+      if (!w.isDestroyed()) w.destroy();
+    } catch {}
+  }
+  launchedWindows.clear();
 });
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

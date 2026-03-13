@@ -20,17 +20,15 @@
         margin: 0;
         padding: 0;
       }
-
       :root {
         --bg: #1c1c22;
         --border: rgba(255, 255, 255, 0.08);
         --text: #e0e0ec;
         --text2: #8888aa;
-        --btn-hover: rgba(255, 255, 255, 0.1);
-        --btn-active: rgba(255, 255, 255, 0.18);
-        --radius: 7px;
+        --hover: rgba(255, 255, 255, 0.1);
+        --active: rgba(255, 255, 255, 0.18);
+        --r: 7px;
       }
-
       html,
       body {
         width: 100%;
@@ -42,21 +40,17 @@
         -webkit-font-smoothing: antialiased;
         user-select: none;
       }
-
-      .toolbar {
+      .bar {
         display: flex;
         align-items: center;
         height: 44px;
-        /* 80px left padding = space for macOS traffic lights */
         padding: 0 14px 0 80px;
         gap: 4px;
         border-bottom: 1px solid var(--border);
-        background: var(--bg);
         -webkit-app-region: drag;
         position: relative;
       }
-
-      .toolbar::after {
+      .bar::after {
         content: "";
         position: absolute;
         bottom: -8px;
@@ -70,11 +64,10 @@
         );
         pointer-events: none;
       }
-
       .btn {
         width: 30px;
         height: 30px;
-        border-radius: var(--radius);
+        border-radius: var(--r);
         border: none;
         background: none;
         color: var(--text2);
@@ -90,65 +83,70 @@
           opacity 0.12s;
       }
       .btn:hover:not(:disabled) {
-        background: var(--btn-hover);
+        background: var(--hover);
         color: var(--text);
       }
       .btn:active:not(:disabled) {
-        background: var(--btn-active);
+        background: var(--active);
       }
       .btn:disabled {
-        opacity: 0.28;
+        opacity: 0.25;
         cursor: default;
       }
-
-      .btn-divider {
+      .sep {
         width: 1px;
         height: 16px;
         background: var(--border);
-        margin: 0 4px;
+        margin: 0 2px;
         flex-shrink: 0;
       }
-
       @keyframes spin {
         to {
           transform: rotate(360deg);
         }
       }
-      .spinning {
+      .spin {
         animation: spin 0.7s linear infinite;
       }
-
-      .spacer {
+      .title {
         flex: 1;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 8px;
+        -webkit-app-region: drag;
       }
-
-      .mode-badge {
+      .badge {
         font-size: 10px;
         font-weight: 600;
         padding: 2px 8px;
         border-radius: 100px;
         text-transform: uppercase;
         letter-spacing: 0.4px;
+        flex-shrink: 0;
         -webkit-app-region: no-drag;
       }
-      .badge-standard {
+      .s {
         background: rgba(99, 102, 241, 0.18);
         color: #818cf8;
       }
-      .badge-tabbed {
+      .t {
         background: rgba(34, 197, 94, 0.18);
         color: #4ade80;
       }
-      .badge-incognito {
+      .i {
         background: rgba(251, 191, 36, 0.18);
         color: #fbbf24;
       }
     </style>
   </head>
   <body>
-    <div class="toolbar">
-      <!-- Back -->
-      <button class="btn" id="btnBack" title="Go back" disabled>
+    <div class="bar">
+      <button class="btn" id="back" title="Go back" disabled>
         <svg
           width="14"
           height="14"
@@ -162,9 +160,7 @@
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
-
-      <!-- Forward -->
-      <button class="btn" id="btnForward" title="Go forward" disabled>
+      <button class="btn" id="fwd" title="Go forward" disabled>
         <svg
           width="14"
           height="14"
@@ -178,13 +174,10 @@
           <polyline points="9 18 15 12 9 6" />
         </svg>
       </button>
-
-      <div class="btn-divider"></div>
-
-      <!-- Reload -->
-      <button class="btn" id="btnReload" title="Reload page">
+      <div class="sep"></div>
+      <button class="btn" id="reload" title="Reload">
         <svg
-          id="reloadIcon"
+          id="ri"
           width="14"
           height="14"
           viewBox="0 0 24 24"
@@ -198,42 +191,50 @@
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
         </svg>
       </button>
-
-      <div class="spacer"></div>
-
-      <span class="mode-badge" id="modeBadge"></span>
+      <div class="title" id="title"></div>
+      <span class="badge" id="badge"></span>
     </div>
-
     <script>
-      const btnBack = document.getElementById("btnBack");
-      const btnForward = document.getElementById("btnForward");
-      const btnReload = document.getElementById("btnReload");
-      const reloadIcon = document.getElementById("reloadIcon");
-      const badgeEl = document.getElementById("modeBadge");
+      // location.search works here — this is renderer JS, not the preload
+      const ID = new URLSearchParams(location.search).get("appId") || "";
 
-      // Wire buttons — toolbar-preload already has APP_ID synchronously
-      btnBack.addEventListener("click", () => window.toolbar.back());
-      btnForward.addEventListener("click", () => window.toolbar.forward());
-      btnReload.addEventListener("click", () => window.toolbar.reload());
+      const back = document.getElementById("back");
+      const fwd = document.getElementById("fwd");
+      const reload = document.getElementById("reload");
+      const ri = document.getElementById("ri");
+      const title = document.getElementById("title");
+      const badge = document.getElementById("badge");
 
-      // Fetch display info for mode badge
+      function apply(s) {
+        if (!s) return;
+        if (s.canBack !== undefined) back.disabled = !s.canBack;
+        if (s.canForward !== undefined) fwd.disabled = !s.canForward;
+        if (s.loading === true) ri.classList.add("spin");
+        if (s.loading === false) ri.classList.remove("spin");
+        if (s.title !== undefined) title.textContent = s.title;
+      }
+
+      back.addEventListener("click", () => window.toolbar.back(ID));
+      fwd.addEventListener("click", () => window.toolbar.forward(ID));
+      reload.addEventListener("click", () => window.toolbar.reload(ID));
+
+      window.toolbar.onState(apply);
+
       window.toolbar
-        .getInfo()
+        .getState(ID)
+        .then(apply)
+        .catch((e) => console.error("getState failed:", e));
+
+      window.toolbar
+        .getInfo(ID)
         .then((info) => {
           if (!info) return;
-          const mode = info.mode || "standard";
-          badgeEl.textContent = mode;
-          badgeEl.className = `mode-badge badge-${mode}`;
+          if (!title.textContent) title.textContent = info.name || "";
+          const m = info.mode || "standard";
+          badge.textContent = m;
+          badge.className = "badge " + m[0]; // s, t, or i
         })
-        .catch(() => {});
-
-      // React to nav-state updates pushed from main process
-      window.toolbar.onUpdate(({ canBack, canForward, loading }) => {
-        if (canBack !== undefined) btnBack.disabled = !canBack;
-        if (canForward !== undefined) btnForward.disabled = !canForward;
-        if (loading === true) reloadIcon.classList.add("spinning");
-        if (loading === false) reloadIcon.classList.remove("spinning");
-      });
+        .catch((e) => console.error("getInfo failed:", e));
     </script>
   </body>
 </html>
