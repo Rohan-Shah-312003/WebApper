@@ -12,137 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      :root {
-        --bg: #1c1c22;
-        --border: rgba(255, 255, 255, 0.08);
-        --text: #e0e0ec;
-        --text2: #8888aa;
-        --hover: rgba(255, 255, 255, 0.1);
-        --active: rgba(255, 255, 255, 0.18);
-        --r: 7px;
-      }
-      html,
-      body {
-        width: 100%;
-        height: 44px;
-        overflow: hidden;
-        font-family: "DM Sans", system-ui, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-        -webkit-font-smoothing: antialiased;
-        user-select: none;
-      }
-      .bar {
-        display: flex;
-        align-items: center;
-        height: 44px;
-        padding: 0 14px 0 80px;
-        gap: 4px;
-        border-bottom: 1px solid var(--border);
-        -webkit-app-region: drag;
-        position: relative;
-      }
-      .bar::after {
-        content: "";
-        position: absolute;
-        bottom: -8px;
-        left: 0;
-        right: 0;
-        height: 8px;
-        background: linear-gradient(
-          to bottom,
-          rgba(0, 0, 0, 0.15),
-          transparent
-        );
-        pointer-events: none;
-      }
-      .btn {
-        width: 30px;
-        height: 30px;
-        border-radius: var(--r);
-        border: none;
-        background: none;
-        color: var(--text2);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        -webkit-app-region: no-drag;
-        transition:
-          background 0.12s,
-          color 0.12s,
-          opacity 0.12s;
-      }
-      .btn:hover:not(:disabled) {
-        background: var(--hover);
-        color: var(--text);
-      }
-      .btn:active:not(:disabled) {
-        background: var(--active);
-      }
-      .btn:disabled {
-        opacity: 0.25;
-        cursor: default;
-      }
-      .sep {
-        width: 1px;
-        height: 16px;
-        background: var(--border);
-        margin: 0 2px;
-        flex-shrink: 0;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      .spin {
-        animation: spin 0.7s linear infinite;
-      }
-      .title {
-        flex: 1;
-        text-align: center;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--text);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        padding: 0 8px;
-        -webkit-app-region: drag;
-      }
-      .badge {
-        font-size: 10px;
-        font-weight: 600;
-        padding: 2px 8px;
-        border-radius: 100px;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        flex-shrink: 0;
-        -webkit-app-region: no-drag;
-      }
-      .s {
-        background: rgba(99, 102, 241, 0.18);
-        color: #818cf8;
-      }
-      .t {
-        background: rgba(34, 197, 94, 0.18);
-        color: #4ade80;
-      }
-      .i {
-        background: rgba(251, 191, 36, 0.18);
-        color: #fbbf24;
-      }
-    </style>
+    <link rel="stylesheet" href="./toolbar.css" />
   </head>
   <body>
     <div class="bar">
@@ -154,8 +24,6 @@
           fill="none"
           stroke="currentColor"
           stroke-width="2.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
         >
           <polyline points="15 18 9 12 15 6" />
         </svg>
@@ -168,8 +36,6 @@
           fill="none"
           stroke="currentColor"
           stroke-width="2.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
         >
           <polyline points="9 18 15 12 9 6" />
         </svg>
@@ -184,57 +50,46 @@
           fill="none"
           stroke="currentColor"
           stroke-width="2.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
         >
           <polyline points="23 4 23 10 17 10" />
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
         </svg>
       </button>
-      <div class="title" id="title"></div>
+      <div class="title" id="title">Loading...</div>
       <span class="badge" id="badge"></span>
     </div>
+
     <script>
-      // location.search works here — this is renderer JS, not the preload
       const ID = new URLSearchParams(location.search).get("appId") || "";
+      const backBtn = document.getElementById("back");
+      const fwdBtn = document.getElementById("fwd");
+      const reloadBtn = document.getElementById("reload");
+      const reloadIcon = document.getElementById("ri");
+      const titleEl = document.getElementById("title");
 
-      const back = document.getElementById("back");
-      const fwd = document.getElementById("fwd");
-      const reload = document.getElementById("reload");
-      const ri = document.getElementById("ri");
-      const title = document.getElementById("title");
-      const badge = document.getElementById("badge");
-
-      function apply(s) {
+      // Updates UI based on state object received from main.js
+      function applyState(s) {
         if (!s) return;
-        if (s.canBack !== undefined) back.disabled = !s.canBack;
-        if (s.canForward !== undefined) fwd.disabled = !s.canForward;
-        if (s.loading === true) ri.classList.add("spin");
-        if (s.loading === false) ri.classList.remove("spin");
-        if (s.title !== undefined) title.textContent = s.title;
+        if (s.canBack !== undefined) backBtn.disabled = !s.canBack;
+        if (s.canForward !== undefined) fwdBtn.disabled = !s.canForward;
+        if (s.loading === true) reloadIcon.classList.add("spin");
+        else if (s.loading === false) reloadIcon.classList.remove("spin");
+        if (s.title) titleEl.textContent = s.title;
       }
 
-      back.addEventListener("click", () => window.toolbar.back(ID));
-      fwd.addEventListener("click", () => window.toolbar.forward(ID));
-      reload.addEventListener("click", () => window.toolbar.reload(ID));
+      // Button Event Listeners
+      backBtn.addEventListener("click", () => window.toolbar.back(ID));
+      fwdBtn.addEventListener("click", () => window.toolbar.forward(ID));
+      reloadBtn.addEventListener("click", () => window.toolbar.reload(ID));
 
-      window.toolbar.onState(apply);
+      // Listen for pushes from main process
+      window.toolbar.onState(applyState);
 
-      window.toolbar
-        .getState(ID)
-        .then(apply)
-        .catch((e) => console.error("getState failed:", e));
-
-      window.toolbar
-        .getInfo(ID)
-        .then((info) => {
-          if (!info) return;
-          if (!title.textContent) title.textContent = info.name || "";
-          const m = info.mode || "standard";
-          badge.textContent = m;
-          badge.className = "badge " + m[0]; // s, t, or i
-        })
-        .catch((e) => console.error("getInfo failed:", e));
+      // Initial Fetch: Get app name and current state immediately
+      window.toolbar.getInfo(ID).then((info) => {
+        if (info) titleEl.textContent = info.name;
+      });
+      window.toolbar.getState(ID).then(applyState);
     </script>
   </body>
 </html>

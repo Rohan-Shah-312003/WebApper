@@ -25,14 +25,14 @@ function saveApps(apps) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(apps, null, 2));
 }
 
-// ── Globals ────────────────────────────────────────────────────────────────────
+// Globals
 let mainWindow = null;
 const launchedWindows = new Map(); // id → BrowserWindow
 const siteViewMap = new Map(); // id → WebContentsView
 const toolbarInfoStore = new Map(); // id → info object
 const TOOLBAR_H = 44;
 
-// ── Main window ────────────────────────────────────────────────────────────────
+// Main window
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 960,
@@ -97,7 +97,7 @@ function createMainWindow() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-// ── Ad-domain check ────────────────────────────────────────────────────────────
+// Ad-domain check
 function isAdDomain(url) {
   try {
     const { BLOCKED_DOMAINS } = require("./adblocker");
@@ -110,30 +110,23 @@ function isAdDomain(url) {
   return false;
 }
 
-// ── Global toolbar IPC (fixed channel names, id passed as argument) ────────────
-// These are registered ONCE at startup, not per-window.
+// Global toolbar IPC
 ipcMain.on("toolbar:reload", (_, id) => {
   const sv = siteViewMap.get(id);
   if (sv && !sv.webContents.isDestroyed()) {
-    try {
-      sv.webContents.reload();
-    } catch {}
+    sv.webContents.reload();
   }
 });
 ipcMain.on("toolbar:back", (_, id) => {
   const sv = siteViewMap.get(id);
-  if (sv) {
-    try {
-      if (sv.webContents.canGoBack()) sv.webContents.goBack();
-    } catch {}
+  if (sv && !sv.webContents.isDestroyed()) {
+    if (sv.webContents.canGoBack()) sv.webContents.goBack();
   }
 });
 ipcMain.on("toolbar:forward", (_, id) => {
   const sv = siteViewMap.get(id);
-  if (sv) {
-    try {
-      if (sv.webContents.canGoForward()) sv.webContents.goForward();
-    } catch {}
+  if (sv && !sv.webContents.isDestroyed()) {
+    if (sv.webContents.canGoForward()) sv.webContents.goForward();
   }
 });
 ipcMain.handle("toolbar:getState", (_, id) => {
@@ -146,16 +139,17 @@ ipcMain.handle("toolbar:getState", (_, id) => {
       loading: false,
       title: info?.name || "",
     };
+  const pageTitle = sv.webContents.getTitle();
   return {
     canBack: sv.webContents.canGoBack(),
     canForward: sv.webContents.canGoForward(),
     loading: sv.webContents.isLoading(),
-    title: sv.webContents.getTitle() || info?.name || "",
+    title: pageTitle || info?.name,
   };
 });
 ipcMain.handle("toolbar:getInfo", (_, id) => toolbarInfoStore.get(id) || null);
 
-// ── Launch a web app window ────────────────────────────────────────────────────
+// Launch web app window
 function launchWebApp(webApp) {
   if (launchedWindows.has(webApp.id)) {
     const ex = launchedWindows.get(webApp.id);
@@ -174,7 +168,7 @@ function launchWebApp(webApp) {
 
   applyToPartition(partition);
 
-  // ── Shell window ──────────────────────────────────────────────────────────
+  // Shell window
   const win = new BrowserWindow({
     width: winW,
     height: winH,
@@ -186,7 +180,7 @@ function launchWebApp(webApp) {
     backgroundColor: "#1a1a1f",
     skipTaskbar: false,
     webPreferences: {
-      preload: path.join(__dirname, "toolbar-preload.js"),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -211,10 +205,10 @@ function launchWebApp(webApp) {
     query: { appId: webApp.id },
   });
 
-  // ── WebContentsView ───────────────────────────────────────────────────────
+  // WebContentsView
   const siteView = new WebContentsView({
     webPreferences: {
-      preload: path.join(__dirname, "webapp-preload.js"),
+      preload: path.join(__dirname, "preload.js"),
       partition,
       nodeIntegration: false,
       contextIsolation: true,
@@ -238,20 +232,41 @@ function launchWebApp(webApp) {
   win.on("resize", layout);
   siteView.webContents.loadURL(webApp.url);
 
-  // ── Push toolbar state ────────────────────────────────────────────────────
+  // Push toolbar state to the toolbar renderer
+  // We guard: only send if the toolbar window's webContents is alive AND the
+  // toolbar has finished its own initial load (toolbarReady flag).
+  let toolbarReady = false;
+  // Queue of state objects that arrived before the toolbar was ready.
+  let pendingState = null;
+
   function push(extra = {}) {
     if (win.isDestroyed()) return;
-    try {
-      win.webContents.send("toolbar:state", {
-        canBack: siteView.webContents.canGoBack(),
-        canForward: siteView.webContents.canGoForward(),
-        loading: siteView.webContents.isLoading(),
-        title: siteView.webContents.getTitle() || webApp.name,
-        ...extra,
-      });
-    } catch {}
+    const pageTitle = !siteView.webContents.isDestroyed()
+      ? siteView.webContents.getTitle()
+      : "";
+    const state = {
+      canBack:
+        !siteView.webContents.isDestroyed() && siteView.webContents.canGoBack(),
+      canForward:
+        !siteView.webContents.isDestroyed() &&
+        siteView.webContents.canGoForward(),
+      loading:
+        !siteView.webContents.isDestroyed() && siteView.webContents.isLoading(),
+      // Use real page title when available; fall back to the configured app name.
+      title: pageTitle || webApp.name,
+      ...extra,
+    };
+
+    if (!toolbarReady) {
+      // Buffer the latest state — we'll flush it once the toolbar is ready.
+      pendingState = state;
+      return;
+    }
+
+    win.webContents.send("toolbar:state", state);
   }
 
+  // Site-view navigation events → push updated state.
   siteView.webContents.on("did-navigate", () => push({ loading: false }));
   siteView.webContents.on("did-navigate-in-page", () =>
     push({ loading: false }),
@@ -259,13 +274,36 @@ function launchWebApp(webApp) {
   siteView.webContents.on("did-start-loading", () => push({ loading: true }));
   siteView.webContents.on("did-stop-loading", () => push({ loading: false }));
   siteView.webContents.on("page-title-updated", (_, t) => {
-    push({ title: t || webApp.name });
-    if (!win.isDestroyed()) win.setTitle(t || webApp.name);
+    const title = t || webApp.name;
+    push({ title });
+    if (!win.isDestroyed()) win.setTitle(title);
   });
-  // When toolbar HTML itself finishes loading, push current state immediately
-  win.webContents.on("did-finish-load", () => push());
 
-  // ── Popup / OAuth handling ────────────────────────────────────────────────
+  // When the toolbar HTML itself finishes loading, flush any buffered state
+  // and mark the toolbar as ready for future pushes.
+  win.webContents.on("did-finish-load", () => {
+    toolbarReady = true;
+    // Send the most recent buffered state, or a fresh snapshot.
+    const state = pendingState || {
+      canBack:
+        !siteView.webContents.isDestroyed() && siteView.webContents.canGoBack(),
+      canForward:
+        !siteView.webContents.isDestroyed() &&
+        siteView.webContents.canGoForward(),
+      loading:
+        !siteView.webContents.isDestroyed() && siteView.webContents.isLoading(),
+      title:
+        (!siteView.webContents.isDestroyed() &&
+          siteView.webContents.getTitle()) ||
+        webApp.name,
+    };
+    pendingState = null;
+    try {
+      win.webContents.send("toolbar:state", state);
+    } catch {}
+  });
+
+  // Popup / OAuth handling
   function siteViewAlive() {
     try {
       return !!(
@@ -410,41 +448,36 @@ function launchWebApp(webApp) {
     });
   });
 
-  // ── Scrollbar polish ──────────────────────────────────────────────────────
+  // Scrollbar polish
   siteView.webContents.on("did-finish-load", () => {
     if (!siteViewAlive()) return;
     siteView.webContents
       .insertCSS(
-        `
-      ::-webkit-scrollbar{width:8px;height:8px}
-      ::-webkit-scrollbar-track{background:transparent}
-      ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.35);border-radius:4px}
-      ::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.6)}`,
+        `::-webkit-scrollbar{width:8px;height:8px}
+       ::-webkit-scrollbar-track{background:transparent}
+       ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.35);border-radius:4px}
+       ::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.6)}`,
       )
       .catch(() => {});
   });
 
-  // ── Cleanup ───────────────────────────────────────────────────────────────
+  // Cleanup
   win.on("close", () => {
-    try {
-      if (siteViewAlive()) {
-        win.contentView.removeChildView(siteView);
-        siteView.webContents.destroy();
-      }
-    } catch {}
+    if (siteViewAlive()) {
+      win.contentView.removeChildView(siteView);
+      siteView.webContents.destroy();
+    }
   });
   win.on("closed", () => {
-    try {
-      const sz = win.getSize ? win.getSize() : [winW, winH];
-      const all = loadApps();
-      const idx = all.findIndex((a) => a.id === webApp.id);
-      if (idx !== -1) {
-        all[idx].windowWidth = sz[0];
-        all[idx].windowHeight = sz[1];
-        all[idx].lastOpened = new Date().toISOString();
-        saveApps(all);
-      }
-    } catch {}
+    const sz = win.getSize ? win.getSize() : [winW, winH];
+    const all = loadApps();
+    const idx = all.findIndex((a) => a.id === webApp.id);
+    if (idx !== -1) {
+      all[idx].windowWidth = sz[0];
+      all[idx].windowHeight = sz[1];
+      all[idx].lastOpened = new Date().toISOString();
+      saveApps(all);
+    }
     toolbarInfoStore.delete(webApp.id);
     siteViewMap.delete(webApp.id);
     launchedWindows.delete(webApp.id);
@@ -458,7 +491,7 @@ function launchWebApp(webApp) {
   launchedWindows.set(webApp.id, win);
 }
 
-// ── App-management IPC ─────────────────────────────────────────────────────────
+// App-management IPC
 ipcMain.handle("apps:list", () => loadApps());
 ipcMain.handle("apps:save", (_, apps) => {
   saveApps(apps);
@@ -504,7 +537,7 @@ ipcMain.handle("dialog:pickImage", async () => {
   return `data:${mime};base64,${data.toString("base64")}`;
 });
 
-// ── Dock menu ─────────────────────────────────────────────────────────────────
+// Dock menu
 function updateDockMenu() {
   if (process.platform !== "darwin" || !app.dock) return;
   const items = [];
@@ -534,7 +567,7 @@ function updateDockMenu() {
   );
 }
 
-// ── Lifecycle ──────────────────────────────────────────────────────────────────
+// Lifecycle
 app.whenReady().then(() => {
   applyToDefaultSession();
   createMainWindow();
