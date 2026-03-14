@@ -64,6 +64,21 @@
           </svg>
           Gallery
         </button>
+        <button class="nav-item" data-view="extensions">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M20.5 11H19V7a2 2 0 00-2-2h-4V3.5A2.5 2.5 0 0010.5 1v0A2.5 2.5 0 008 3.5V5H4a2 2 0 00-2 2v3.8h1.5A2.7 2.7 0 016.2 13v0a2.7 2.7 0 01-2.7 2.7H2V19a2 2 0 002 2h3.8v-1.5A2.7 2.7 0 0110.5 17v0a2.7 2.7 0 012.7 2.5V21H17a2 2 0 002-2v-4h1.5a2.5 2.5 0 000-5z"
+            />
+          </svg>
+          Extensions
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -142,6 +157,54 @@
           </div>
         </div>
         <div class="gallery-grid" id="galleryGrid"></div>
+      </div>
+      <!-- Extensions view -->
+      <div class="view" id="view-extensions">
+        <div class="view-header">
+          <div>
+            <h1 class="view-title">Extensions</h1>
+            <p class="view-subtitle">
+              Add Chrome extensions to all your web apps
+            </p>
+          </div>
+        </div>
+
+        <div class="ext-install-bar">
+          <input
+            type="text"
+            id="extUrlInput"
+            class="field-input ext-url-input"
+            placeholder="Paste Chrome Web Store URL or extension ID…"
+          />
+          <button class="btn-primary" id="btnInstallExt">Install</button>
+        </div>
+        <div class="ext-install-status" id="extStatus"></div>
+
+        <div class="ext-list" id="extList">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="empty-state" id="extEmpty" style="display: none">
+          <div class="empty-icon">🧩</div>
+          <h3>No extensions installed</h3>
+          <p>Paste a Chrome Web Store link above to install an extension.</p>
+          <p class="ext-examples">
+            Try:
+            <a
+              href="#"
+              class="ext-link"
+              data-id="cjpalhdlnbpafiamejdnhcphjbkeiagm"
+              >uBlock Origin</a
+            >
+            ·
+            <a
+              href="#"
+              class="ext-link"
+              data-id="mnjggcdmjocbbbhaepdhchncahnbgone"
+              >SponsorBlock</a
+            >
+          </p>
+        </div>
       </div>
     </main>
 

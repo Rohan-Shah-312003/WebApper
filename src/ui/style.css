@@ -838,3 +838,146 @@ details[open] .advanced-toggle::before {
 .app-card {
   animation: fadeIn 0.2s ease backwards;
 }
+
+/* ── Extensions ───────────────────────────────────────────────────────────── */
+.ext-install-bar {
+  display: flex;
+  gap: 10px;
+  padding: 0 28px 16px;
+  align-items: center;
+}
+
+.ext-url-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.ext-install-status {
+  padding: 0 28px 12px;
+  font-size: 13px;
+  min-height: 20px;
+  transition: color 0.2s;
+}
+.ext-install-status.ok {
+  color: var(--success);
+}
+.ext-install-status.err {
+  color: var(--danger);
+}
+.ext-install-status.loading {
+  color: var(--text2);
+}
+
+.ext-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ext-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: fadeIn 0.2s ease backwards;
+}
+
+.ext-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ext-card-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.ext-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ext-card-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ext-card-meta {
+  font-size: 11.5px;
+  color: var(--text2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ext-card-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--text2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.ext-card-remove:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+}
+
+.ext-examples {
+  font-size: 12px;
+  color: var(--text2);
+}
+.ext-link {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ext-link:hover {
+  text-decoration: underline;
+}
+
+.ext-mv3-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 100px;
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  vertical-align: middle;
+  cursor: help;
+}
+.ext-mv3-note {
+  font-size: 11px;
+  color: #fbbf24;
+  opacity: 0.8;
+  margin-top: 3px;
+  line-height: 1.4;
+}

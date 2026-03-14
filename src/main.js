@@ -12,6 +12,13 @@ const {
 const path = require("path");
 const fs = require("fs");
 const { applyToPartition, applyToDefaultSession } = require("./adblocker");
+const {
+  installExtension,
+  removeExtension,
+  loadAllExtensionsIntoPartition,
+  initExtensions,
+  loadExtensionData,
+} = require("./extensions");
 
 // ── Platform helpers ───────────────────────────────────────────────────────────
 const isMac = process.platform === "darwin";
@@ -23,31 +30,40 @@ const isLinux = process.platform === "linux";
 // error_code=18" on Windows machines with incompatible/missing GPU drivers,
 // virtual machines, and Remote Desktop sessions. Software rendering is used
 // instead — no visible quality difference for a web-app wrapper.
-app.commandLine.appendSwitch("disable-gpu");
-app.commandLine.appendSwitch("disable-gpu-compositing");
-app.commandLine.appendSwitch("disable-software-rasterizer");
-app.commandLine.appendSwitch("no-sandbox");
-
-// Linux: Parallels and some container environments don't mount /dev/shm.
-// Fall back to a temp-dir shared memory path so Chromium doesn't hard-crash.
+// ── Linux: Parallels ARM64 virtio_gpu setup ───────────────────────────────────
+// The VM has /dev/dri/card0 (virtio_gpudrmfb) but Electron's EGL passthrough
+// doesn't work without ANGLE. Use SwiftShader (CPU renderer) which is bundled
+// inside Electron itself and needs no host GPU driver at all.
+// --no-sandbox + --disable-dev-shm-usage are required for AppImage environments.
 if (isLinux) {
-  const os = require("os");
-  const shmPath = "/dev/shm";
-  let shmOk = false;
+  app.commandLine.appendSwitch("no-sandbox");
+  app.commandLine.appendSwitch("disable-dev-shm-usage");
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+  app.commandLine.appendSwitch("disable-gpu-sandbox");
+  app.commandLine.appendSwitch("in-process-gpu");
+  app.commandLine.appendSwitch("use-gl", "swiftshader");
+  app.commandLine.appendSwitch("enable-unsafe-swiftshader");
+  app.commandLine.appendSwitch("disable-software-rasterizer", "false");
+  // Force X11 — Wayland compositing is unavailable in Parallels ARM64
+  app.commandLine.appendSwitch("ozone-platform", "x11");
+  // Shared memory fallback: use a user-writable dir inside home
+  const shmFallback = require("path").join(
+    require("os").homedir(),
+    ".webapper-tmp",
+  );
   try {
-    const fs2 = require("fs");
-    fs2.accessSync(shmPath, fs2.constants.W_OK | fs2.constants.X_OK);
-    shmOk = true;
+    require("fs").mkdirSync(shmFallback, { recursive: true });
   } catch {}
-  if (!shmOk) {
-    app.commandLine.appendSwitch(
-      "disk-cache-dir",
-      require("path").join(os.tmpdir(), "webapper-shm"),
-    );
-    // Tell Chromium to use /tmp instead of /dev/shm for shared memory
-    process.env.TMPDIR = os.tmpdir();
-    app.commandLine.appendSwitch("disable-dev-shm-usage");
-  }
+  process.env.TMPDIR = shmFallback;
+  process.env.TEMP = shmFallback;
+  process.env.TMP = shmFallback;
+} else {
+  // Windows: disable GPU (no driver guarantee in all environments)
+  app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+  app.commandLine.appendSwitch("disable-software-rasterizer");
+  app.commandLine.appendSwitch("no-sandbox");
 }
 
 // ── Storage ────────────────────────────────────────────────────────────────────
@@ -102,8 +118,11 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Linux software rendering needs backgroundThrottling disabled
+      backgroundThrottling: false,
     },
     show: false,
+    paintWhenInitiallyHidden: true,
     // Windows/Linux: show app name in title bar
     title: "Webapper",
   });
@@ -420,6 +439,8 @@ function launchWebApp(webApp) {
   const winH = webApp.windowHeight || 800;
 
   applyToPartition(partition);
+  // Load all installed extensions into this app's session
+  loadAllExtensionsIntoPartition(partition).catch(() => {});
 
   const win = new BrowserWindow({
     width: winW,
@@ -802,9 +823,31 @@ ipcMain.handle("dialog:pickImage", async () => {
   return `data:${mime};base64,${data.toString("base64")}`;
 });
 
+// ── Extension IPC ────────────────────────────────────────────────────────────
+ipcMain.handle("extensions:list", () => loadExtensionData());
+
+ipcMain.handle("extensions:install", async (_, urlOrId) => {
+  try {
+    const record = await installExtension(urlOrId);
+    return { ok: true, extension: record };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle("extensions:remove", async (_, id) => {
+  try {
+    await removeExtension(id);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 // ── Lifecycle ──────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   applyToDefaultSession();
+  initExtensions().catch(() => {});
   createMainWindow();
   createTray();
 

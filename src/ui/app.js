@@ -343,6 +343,7 @@ function switchView(viewId) {
     btn.classList.toggle("active", btn.dataset.view === viewId);
   });
   if (viewId === "gallery") renderGallery();
+  if (viewId === "extensions") renderExtensions();
 }
 
 // ── URL → name suggestion ──────────────────────────────────────────────────────
@@ -361,19 +362,127 @@ function suggestNameFromUrl(url) {
   }, 400);
 }
 
+// ── Extensions ─────────────────────────────────────────────────────────────────
+async function renderExtensions() {
+  const list = document.getElementById("extList");
+  const empty = document.getElementById("extEmpty");
+  const exts = await window.extensions.list();
+
+  if (exts.length === 0) {
+    list.style.display = "none";
+    empty.style.display = "flex";
+    return;
+  }
+
+  list.style.display = "flex";
+  empty.style.display = "none";
+  list.innerHTML = "";
+
+  exts.forEach((ext) => {
+    const card = document.createElement("div");
+    card.className = "ext-card";
+
+    const iconHtml = ext.iconPath
+      ? `<img src="file://${ext.iconPath}" alt="" />`
+      : "🧩";
+
+    const mv3Warning = ext.mv3Warning || "";
+    const mv3Badge = mv3Warning
+      ? `<span class="ext-mv3-badge" title="${escHtml(mv3Warning)}">MV3 ⚠</span>`
+      : "";
+    card.innerHTML = `
+      <div class="ext-card-icon">${iconHtml}</div>
+      <div class="ext-card-info">
+        <div class="ext-card-name">${escHtml(ext.name || "")} ${mv3Badge}</div>
+        <div class="ext-card-meta">v${escHtml(ext.version || "?")}
+          ${ext.description ? " · " + escHtml(ext.description.slice(0, 80)) : ""}</div>
+        ${mv3Warning ? `<div class="ext-mv3-note">${escHtml(mv3Warning)}</div>` : ""}
+      </div>
+      <button class="ext-card-remove" title="Remove extension">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+        </svg>
+      </button>
+    `;
+
+    card
+      .querySelector(".ext-card-remove")
+      .addEventListener("click", async () => {
+        if (!confirm(`Remove "${ext.name}"?`)) return;
+        const res = await window.extensions.remove(ext.id);
+        if (res.ok) {
+          renderExtensions();
+        } else {
+          alert("Failed to remove: " + res.error);
+        }
+      });
+
+    list.appendChild(card);
+  });
+}
+
+function setExtStatus(msg, type = "") {
+  const el = document.getElementById("extStatus");
+  el.textContent = msg;
+  el.className = "ext-install-status " + type;
+}
+
+async function installExtension() {
+  const input = document.getElementById("extUrlInput").value.trim();
+  if (!input) return;
+
+  setExtStatus("Installing…", "loading");
+  document.getElementById("btnInstallExt").disabled = true;
+
+  const res = await window.extensions.install(input);
+
+  document.getElementById("btnInstallExt").disabled = false;
+
+  if (res.ok) {
+    const mvNote = res.extension.mv3Warning
+      ? " (MV3: content scripts work, background scripts limited)"
+      : "";
+    setExtStatus(
+      `✓ "${res.extension.name}" installed!${mvNote} Restart any open web apps to activate.`,
+      "ok",
+    );
+    document.getElementById("extUrlInput").value = "";
+    renderExtensions();
+  } else {
+    setExtStatus("✗ " + res.error, "err");
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  // Detect platform and set titlebar height CSS variable
-  currentPlatform = await window.webapper.getPlatform();
-  applyTitlebarHeight(currentPlatform);
+  // Detect platform — wrap in try/catch so a failed IPC never blocks rendering
+  try {
+    currentPlatform = await window.webapper.getPlatform();
+    applyTitlebarHeight(currentPlatform);
+  } catch (e) {
+    applyTitlebarHeight("darwin"); // safe fallback
+  }
 
   // Also listen for push (main window sends it after load)
-  window.webapper.onPlatform((p) => {
-    currentPlatform = p;
-    applyTitlebarHeight(p);
-  });
+  try {
+    window.webapper.onPlatform((p) => {
+      currentPlatform = p;
+      applyTitlebarHeight(p);
+    });
+  } catch (e) {}
 
-  apps = await window.webapper.listApps();
+  try {
+    apps = await window.webapper.listApps();
+    console.log(
+      "[webapper] loaded apps:",
+      apps ? apps.length : "null",
+      JSON.stringify(apps).slice(0, 200),
+    );
+  } catch (e) {
+    console.error("[webapper] listApps failed:", e);
+    apps = [];
+  }
   renderLibrary();
   renderGallery();
 
@@ -452,6 +561,23 @@ async function init() {
     suggestNameFromUrl(e.target.value);
   });
 
+  // Extensions
+  document
+    .getElementById("btnInstallExt")
+    .addEventListener("click", installExtension);
+  document.getElementById("extUrlInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") installExtension();
+  });
+  // Quick-install links (uBlock, SponsorBlock examples)
+  document.querySelectorAll(".ext-link").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("extUrlInput").value = a.dataset.id;
+      switchView("extensions");
+      installExtension();
+    });
+  });
+
   // Search
   document
     .getElementById("searchInput")
@@ -497,4 +623,7 @@ async function init() {
   });
 }
 
-init();
+init().catch((e) => {
+  console.error("init failed:", e);
+  renderLibrary();
+});

@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld("webapper", {
   onPlatform: (cb) => ipcRenderer.on("platform", (_, p) => cb(p)),
 });
 
+contextBridge.exposeInMainWorld("extensions", {
+  list: () => ipcRenderer.invoke("extensions:list"),
+  install: (urlOrId) => ipcRenderer.invoke("extensions:install", urlOrId),
+  remove: (id) => ipcRenderer.invoke("extensions:remove", id),
+});
+
 contextBridge.exposeInMainWorld("toolbar", {
   getInfo: (id) => ipcRenderer.invoke("toolbar:getInfo", id),
   getState: (id) => ipcRenderer.invoke("toolbar:getState", id),
