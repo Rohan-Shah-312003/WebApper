@@ -15,8 +15,8 @@
     <link rel="stylesheet" href="./toolbar.css" />
   </head>
   <body>
-    <div class="bar">
-      <button class="btn" id="back" title="Go back" disabled>
+    <div class="bar" id="bar">
+      <!-- <button class="btn" id="back" title="Go back" disabled>
         <svg
           width="14"
           height="14"
@@ -56,7 +56,7 @@
         </svg>
       </button>
       <div class="title" id="title">Loading...</div>
-      <span class="badge" id="badge"></span>
+      <span class="badge" id="badge"></span> -->
     </div>
 
     <script>
@@ -66,8 +66,17 @@
       const reloadBtn = document.getElementById("reload");
       const reloadIcon = document.getElementById("ri");
       const titleEl = document.getElementById("title");
+      const bar = document.getElementById("bar");
 
-      // Updates UI based on state object received from main.js
+      // Adapt left padding based on platform:
+      // macOS hiddenInset needs 80px to clear traffic-light buttons.
+      // Windows/Linux have a native title bar above; no offset needed.
+      window.toolbar.getPlatform().then((platform) => {
+        if (platform !== "darwin") {
+          bar.style.paddingLeft = "10px";
+        }
+      });
+
       function applyState(s) {
         if (!s) return;
         if (s.canBack !== undefined) backBtn.disabled = !s.canBack;
@@ -77,15 +86,12 @@
         if (s.title) titleEl.textContent = s.title;
       }
 
-      // Button Event Listeners
       backBtn.addEventListener("click", () => window.toolbar.back(ID));
       fwdBtn.addEventListener("click", () => window.toolbar.forward(ID));
       reloadBtn.addEventListener("click", () => window.toolbar.reload(ID));
 
-      // Listen for pushes from main process
       window.toolbar.onState(applyState);
 
-      // Initial Fetch: Get app name and current state immediately
       window.toolbar.getInfo(ID).then((info) => {
         if (info) titleEl.textContent = info.name;
       });

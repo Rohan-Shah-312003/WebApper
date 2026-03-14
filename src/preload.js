@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld("webapper", {
   deleteApp: (id) => ipcRenderer.invoke("apps:delete", id),
   fetchFavicon: (url) => ipcRenderer.invoke("app:fetchFavicon", url),
   pickImage: () => ipcRenderer.invoke("dialog:pickImage"),
+  getPlatform: () => ipcRenderer.invoke("platform:get"),
+  onPlatform: (cb) => ipcRenderer.on("platform", (_, p) => cb(p)),
 });
 
 contextBridge.exposeInMainWorld("toolbar", {
@@ -16,4 +18,5 @@ contextBridge.exposeInMainWorld("toolbar", {
   back: (id) => ipcRenderer.send("toolbar:back", id),
   forward: (id) => ipcRenderer.send("toolbar:forward", id),
   onState: (cb) => ipcRenderer.on("toolbar:state", (_, d) => cb(d)),
+  getPlatform: () => ipcRenderer.invoke("platform:get"),
 });

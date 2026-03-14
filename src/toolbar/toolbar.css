@@ -29,7 +29,8 @@ body {
   display: flex;
   align-items: center;
   height: 44px;
-  padding: 0 14px 0 80px;
+  /* Default: no macOS traffic-light offset. JS will set padding-left=80px on macOS. */
+  padding: 0 14px 0 10px;
   gap: 4px;
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;

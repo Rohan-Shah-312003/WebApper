@@ -7,10 +7,26 @@ const {
   nativeImage,
   dialog,
   Menu,
+  Tray,
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { applyToPartition, applyToDefaultSession } = require("./adblocker");
+
+// ── Platform helpers ───────────────────────────────────────────────────────────
+const isMac = process.platform === "darwin";
+const isWin = process.platform === "win32";
+const isLinux = process.platform === "linux";
+
+// ── GPU / sandbox flags ──────────────────────────────────────────────────────────────────────────────
+// Disable hardware GPU acceleration. Fixes "GPU process launch failed:
+// error_code=18" on Windows machines with incompatible/missing GPU drivers,
+// virtual machines, and Remote Desktop sessions. Software rendering is used
+// instead — no visible quality difference for a web-app wrapper.
+app.commandLine.appendSwitch("disable-gpu");
+app.commandLine.appendSwitch("disable-gpu-compositing");
+app.commandLine.appendSwitch("disable-software-rasterizer");
+app.commandLine.appendSwitch("no-sandbox");
 
 // ── Storage ────────────────────────────────────────────────────────────────────
 const DATA_PATH = path.join(app.getPath("userData"), "webapps.json");
@@ -27,10 +43,29 @@ function saveApps(apps) {
 
 // Globals
 let mainWindow = null;
+let tray = null;
 const launchedWindows = new Map(); // id → BrowserWindow
 const siteViewMap = new Map(); // id → WebContentsView
 const toolbarInfoStore = new Map(); // id → info object
 const TOOLBAR_H = 44;
+
+// ── Title bar style per platform ──────────────────────────────────────────────
+// macOS: hiddenInset (traffic lights overlay toolbar)
+// Windows/Linux: default native title bar with custom toolbar below
+function getTitleBarOptions(isWebAppWindow = false) {
+  if (isMac) {
+    return {
+      titleBarStyle: "hiddenInset",
+      ...(isWebAppWindow ? { trafficLightPosition: { x: 12, y: 13 } } : {}),
+    };
+  }
+  // Windows & Linux: use a normal title bar; the toolbar sits below it.
+  return {
+    titleBarStyle: "default",
+    // Remove the default menu bar on Windows/Linux (we set our own app menu)
+    autoHideMenuBar: false,
+  };
+}
 
 // Main window
 function createMainWindow() {
@@ -39,7 +74,7 @@ function createMainWindow() {
     height: 680,
     minWidth: 800,
     minHeight: 560,
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    ...getTitleBarOptions(false),
     backgroundColor: "#0f0f11",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -47,12 +82,35 @@ function createMainWindow() {
       nodeIntegration: false,
     },
     show: false,
+    // Windows/Linux: show app name in title bar
+    title: "Webapper",
   });
   mainWindow.loadFile(path.join(__dirname, "ui", "index.html"));
   mainWindow.once("ready-to-show", () => mainWindow.show());
 
+  // Send platform info to renderer so CSS can adapt
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.send("platform", process.platform);
+  });
+
+  buildAppMenu();
+
+  // Windows/Linux: minimize to tray on close — but ONLY if the tray exists.
+  // If tray creation failed, allow normal close so the user isn't stranded.
+  if (!isMac) {
+    mainWindow.on("close", (e) => {
+      if (!app.isQuitting && tray && !tray.isDestroyed()) {
+        e.preventDefault();
+        mainWindow.hide();
+      }
+    });
+  }
+}
+
+// ── Application menu ──────────────────────────────────────────────────────────
+function buildAppMenu() {
   const template = [
-    ...(process.platform === "darwin"
+    ...(isMac
       ? [
           {
             label: app.name,
@@ -67,7 +125,25 @@ function createMainWindow() {
             ],
           },
         ]
-      : []),
+      : [
+          {
+            label: "File",
+            submenu: [
+              {
+                label: "Show Webapper",
+                accelerator: "CmdOrCtrl+Shift+W",
+                click: () => {
+                  if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.show();
+                    mainWindow.focus();
+                  }
+                },
+              },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]),
     {
       label: "Edit",
       submenu: [
@@ -97,7 +173,163 @@ function createMainWindow() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-// Ad-domain check
+// ── System Tray (Windows & Linux) ─────────────────────────────────────────────
+
+/**
+ * Build a guaranteed-valid 16x16 tray icon.
+ *
+ * Priority:
+ *   1. assets/icon.ico  (Windows) / assets/icon.png (Linux) — user-supplied
+ *   2. assets/icon.png  (Windows fallback if .ico missing)
+ *   3. Hard-coded 16×16 purple PNG baked as a base64 data URL — always works,
+ *      no file I/O required, no possibility of a 0×0 empty image crash.
+ *
+ * Windows crashes silently if the Tray image is 0×0 (nativeImage.createEmpty).
+ * We never use createEmpty — always provide real pixels.
+ */
+function buildTrayIcon() {
+  const candidates = isWin
+    ? [
+        path.join(__dirname, "..", "assets", "icon.ico"),
+        path.join(__dirname, "..", "assets", "icon.png"),
+      ]
+    : [path.join(__dirname, "..", "assets", "icon.png")];
+
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const img = nativeImage.createFromPath(p);
+        if (!img.isEmpty()) return img.resize({ width: 16, height: 16 });
+      }
+    } catch {}
+  }
+
+  // Fallback: a 16×16 indigo square encoded as a PNG data URL.
+  // Generated once; zero file-system dependency.
+  // (Pure-JS minimal PNG: IHDR + single solid-colour IDAT + IEND)
+  const FALLBACK_PNG_BASE64 =
+    "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAANklEQVQ4T2NkoBAwUqifYdQA" +
+    "hjAIDgMGBgYGJioZwECFMBg1gIFKYTBqAAOVwmDUAAYqhQEAMAAIAAEbPL4AAAAASUVORK5CYII=";
+
+  return nativeImage.createFromDataURL(
+    `data:image/png;base64,${FALLBACK_PNG_BASE64}`,
+  );
+}
+
+function createTray() {
+  if (isMac) return; // macOS uses the Dock instead
+
+  try {
+    tray = new Tray(buildTrayIcon());
+    tray.setToolTip("Webapper");
+    updateTrayMenu();
+
+    // Single-click → show/focus main window (Windows double-click also fires click)
+    tray.on("click", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+
+    // Windows: double-click also shows the window
+    tray.on("double-click", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+  } catch (err) {
+    // Tray is non-critical — log and continue. The app is still usable
+    // via the taskbar; it just won't minimise-to-tray.
+    console.warn("Tray creation failed:", err.message);
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+
+  const openAppItems = [];
+  for (const [, w] of launchedWindows) {
+    if (!w.isDestroyed()) {
+      let label = "App";
+      try {
+        label = w.getTitle() || "App";
+      } catch {}
+      openAppItems.push({
+        label,
+        click: () => {
+          try {
+            w.show();
+            w.focus();
+          } catch {}
+        },
+      });
+    }
+  }
+
+  const menuTemplate = [
+    {
+      label: "Show Webapper",
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    ...(openAppItems.length ? [{ type: "separator" }, ...openAppItems] : []),
+    { type: "separator" },
+    {
+      label: "Quit",
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ];
+
+  tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
+}
+
+// ── Dock menu (macOS only) ─────────────────────────────────────────────────────
+function updateDockMenu() {
+  if (!isMac || !app.dock) return;
+  const items = [];
+  for (const [, w] of launchedWindows) {
+    if (!w.isDestroyed()) {
+      let label = "App";
+      try {
+        label = w.getTitle() || "App";
+      } catch {}
+      items.push({
+        label,
+        click: () => {
+          try {
+            w.show();
+            w.focus();
+          } catch {}
+        },
+      });
+    }
+  }
+  const open = {
+    label: "Open Webapper",
+    click: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    },
+  };
+  app.dock.setMenu(
+    Menu.buildFromTemplate(
+      items.length ? [...items, { type: "separator" }, open] : [open],
+    ),
+  );
+}
+
+// ── Ad-domain check ────────────────────────────────────────────────────────────
 function isAdDomain(url) {
   try {
     const { BLOCKED_DOMAINS } = require("./adblocker");
@@ -110,24 +342,20 @@ function isAdDomain(url) {
   return false;
 }
 
-// Global toolbar IPC
+// ── Global toolbar IPC ─────────────────────────────────────────────────────────
 ipcMain.on("toolbar:reload", (_, id) => {
   const sv = siteViewMap.get(id);
-  if (sv && !sv.webContents.isDestroyed()) {
-    sv.webContents.reload();
-  }
+  if (sv && !sv.webContents.isDestroyed()) sv.webContents.reload();
 });
 ipcMain.on("toolbar:back", (_, id) => {
   const sv = siteViewMap.get(id);
-  if (sv && !sv.webContents.isDestroyed()) {
-    if (sv.webContents.canGoBack()) sv.webContents.goBack();
-  }
+  if (sv && !sv.webContents.isDestroyed() && sv.webContents.canGoBack())
+    sv.webContents.goBack();
 });
 ipcMain.on("toolbar:forward", (_, id) => {
   const sv = siteViewMap.get(id);
-  if (sv && !sv.webContents.isDestroyed()) {
-    if (sv.webContents.canGoForward()) sv.webContents.goForward();
-  }
+  if (sv && !sv.webContents.isDestroyed() && sv.webContents.canGoForward())
+    sv.webContents.goForward();
 });
 ipcMain.handle("toolbar:getState", (_, id) => {
   const sv = siteViewMap.get(id);
@@ -139,21 +367,24 @@ ipcMain.handle("toolbar:getState", (_, id) => {
       loading: false,
       title: info?.name || "",
     };
-  const pageTitle = sv.webContents.getTitle();
   return {
     canBack: sv.webContents.canGoBack(),
     canForward: sv.webContents.canGoForward(),
     loading: sv.webContents.isLoading(),
-    title: pageTitle || info?.name,
+    title: sv.webContents.getTitle() || info?.name,
   };
 });
 ipcMain.handle("toolbar:getInfo", (_, id) => toolbarInfoStore.get(id) || null);
 
-// Launch web app window
+// Send platform info to toolbar renderers
+ipcMain.handle("platform:get", () => process.platform);
+
+// ── Launch web app window ──────────────────────────────────────────────────────
 function launchWebApp(webApp) {
   if (launchedWindows.has(webApp.id)) {
     const ex = launchedWindows.get(webApp.id);
     if (!ex.isDestroyed()) {
+      ex.show();
       ex.focus();
       return;
     }
@@ -168,15 +399,13 @@ function launchWebApp(webApp) {
 
   applyToPartition(partition);
 
-  // Shell window
   const win = new BrowserWindow({
     width: winW,
     height: winH,
     minWidth: 600,
     minHeight: TOOLBAR_H + 200,
     title: webApp.name,
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 12, y: 13 },
+    ...getTitleBarOptions(true),
     backgroundColor: "#1a1a1f",
     skipTaskbar: false,
     webPreferences: {
@@ -199,13 +428,14 @@ function launchWebApp(webApp) {
     icon: webApp.icon || "🌐",
     mode: webApp.mode || "standard",
     iconDataUrl: webApp.iconDataUrl || null,
+    platform: process.platform,
   });
 
   win.loadFile(path.join(__dirname, "toolbar", "toolbar.html"), {
     query: { appId: webApp.id },
   });
 
-  // WebContentsView
+  // WebContentsView for the site
   const siteView = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -233,10 +463,7 @@ function launchWebApp(webApp) {
   siteView.webContents.loadURL(webApp.url);
 
   // Push toolbar state to the toolbar renderer
-  // We guard: only send if the toolbar window's webContents is alive AND the
-  // toolbar has finished its own initial load (toolbarReady flag).
   let toolbarReady = false;
-  // Queue of state objects that arrived before the toolbar was ready.
   let pendingState = null;
 
   function push(extra = {}) {
@@ -252,21 +479,16 @@ function launchWebApp(webApp) {
         siteView.webContents.canGoForward(),
       loading:
         !siteView.webContents.isDestroyed() && siteView.webContents.isLoading(),
-      // Use real page title when available; fall back to the configured app name.
       title: pageTitle || webApp.name,
       ...extra,
     };
-
     if (!toolbarReady) {
-      // Buffer the latest state — we'll flush it once the toolbar is ready.
       pendingState = state;
       return;
     }
-
     win.webContents.send("toolbar:state", state);
   }
 
-  // Site-view navigation events → push updated state.
   siteView.webContents.on("did-navigate", () => push({ loading: false }));
   siteView.webContents.on("did-navigate-in-page", () =>
     push({ loading: false }),
@@ -279,11 +501,8 @@ function launchWebApp(webApp) {
     if (!win.isDestroyed()) win.setTitle(title);
   });
 
-  // When the toolbar HTML itself finishes loading, flush any buffered state
-  // and mark the toolbar as ready for future pushes.
   win.webContents.on("did-finish-load", () => {
     toolbarReady = true;
-    // Send the most recent buffered state, or a fresh snapshot.
     const state = pendingState || {
       canBack:
         !siteView.webContents.isDestroyed() && siteView.webContents.canGoBack(),
@@ -462,19 +681,33 @@ function launchWebApp(webApp) {
   });
 
   // Cleanup
+  // Capture size in "close" (window still alive) so we never call getSize()
+  // in "closed" (window already destroyed — any native call throws).
+  let lastSize = [winW, winH];
   win.on("close", () => {
+    // Snapshot size while the window object is still valid
+    try {
+      // lastSize = win.getSize();
+    } catch {}
+    // Detach and destroy the site WebContentsView now, before Electron tears
+    // down the BrowserWindow. Doing it here (not in "closed") avoids the
+    // "Object has been destroyed" error on contentView access.
     if (siteViewAlive()) {
-      win.contentView.removeChildView(siteView);
-      siteView.webContents.destroy();
+      try {
+        if (win.contentView) win.contentView.removeChildView(siteView);
+      } catch {}
+      try {
+        siteView.webContents.destroy();
+      } catch {}
     }
   });
   win.on("closed", () => {
-    const sz = win.getSize ? win.getSize() : [winW, winH];
+    // Window is fully destroyed here — only use plain JS, no Electron calls on win.
     const all = loadApps();
     const idx = all.findIndex((a) => a.id === webApp.id);
     if (idx !== -1) {
-      all[idx].windowWidth = sz[0];
-      all[idx].windowHeight = sz[1];
+      all[idx].windowWidth = lastSize[0];
+      all[idx].windowHeight = lastSize[1];
       all[idx].lastOpened = new Date().toISOString();
       saveApps(all);
     }
@@ -482,16 +715,18 @@ function launchWebApp(webApp) {
     siteViewMap.delete(webApp.id);
     launchedWindows.delete(webApp.id);
     updateDockMenu();
+    updateTrayMenu();
   });
 
   win.once("ready-to-show", () => {
     win.show();
     updateDockMenu();
+    updateTrayMenu();
   });
   launchedWindows.set(webApp.id, win);
 }
 
-// App-management IPC
+// ── App-management IPC ─────────────────────────────────────────────────────────
 ipcMain.handle("apps:list", () => loadApps());
 ipcMain.handle("apps:save", (_, apps) => {
   saveApps(apps);
@@ -504,7 +739,15 @@ ipcMain.handle("apps:launch", (_, wa) => {
 ipcMain.handle("apps:delete", (_, id) => {
   saveApps(loadApps().filter((a) => a.id !== id));
   const w = launchedWindows.get(id);
-  if (w && !w.isDestroyed()) w.close();
+  if (w && !w.isDestroyed()) {
+    try {
+      w.close();
+    } catch {
+      try {
+        w.destroy();
+      } catch {}
+    }
+  }
   return true;
 });
 ipcMain.handle("app:fetchFavicon", async (_, url) => {
@@ -537,48 +780,25 @@ ipcMain.handle("dialog:pickImage", async () => {
   return `data:${mime};base64,${data.toString("base64")}`;
 });
 
-// Dock menu
-function updateDockMenu() {
-  if (process.platform !== "darwin" || !app.dock) return;
-  const items = [];
-  for (const [, w] of launchedWindows) {
-    if (!w.isDestroyed())
-      items.push({
-        label: w.getTitle() || "App",
-        click: () => {
-          w.show();
-          w.focus();
-        },
-      });
-  }
-  const open = {
-    label: "Open Webapper",
-    click: () => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    },
-  };
-  app.dock.setMenu(
-    Menu.buildFromTemplate(
-      items.length ? [...items, { type: "separator" }, open] : [open],
-    ),
-  );
-}
-
-// Lifecycle
+// ── Lifecycle ──────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   applyToDefaultSession();
   createMainWindow();
+  createTray();
+
   app.on("activate", () => {
+    // macOS: re-show or re-create main window on Dock click
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
-    } else createMainWindow();
+    } else {
+      createMainWindow();
+    }
   });
 });
+
 app.on("before-quit", () => {
+  app.isQuitting = true;
   for (const [, w] of launchedWindows) {
     try {
       if (!w.isDestroyed()) w.destroy();
@@ -586,6 +806,14 @@ app.on("before-quit", () => {
   }
   launchedWindows.clear();
 });
+
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  // macOS: keep running until explicit Cmd+Q.
+  if (isMac) {
+    app.quit();
+    return;
+  }
+  // Windows/Linux: if the tray is alive it keeps the process running.
+  // If tray creation failed, quit so the app doesn't become an invisible zombie.
+  if (!tray || tray.isDestroyed()) app.quit();
 });

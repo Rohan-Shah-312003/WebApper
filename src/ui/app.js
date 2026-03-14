@@ -3,6 +3,7 @@ let apps = [];
 let editingId = null;
 let currentFilter = "all";
 let contextTarget = null;
+let currentPlatform = "darwin"; // updated after init
 
 // ── Gallery data ───────────────────────────────────────────────────────────────
 const GALLERY = [
@@ -91,6 +92,14 @@ function modeClass(mode) {
   );
 }
 
+// ── Platform-aware titlebar height ────────────────────────────────────────────
+function applyTitlebarHeight(platform) {
+  // macOS hiddenInset overlays ~28px of content; on Windows/Linux the native
+  // system title bar sits outside the client area so no extra padding is needed.
+  const h = platform === "darwin" ? "28px" : "0px";
+  document.documentElement.style.setProperty("--titlebar-h", h);
+}
+
 // ── Render ─────────────────────────────────────────────────────────────────────
 function renderLibrary() {
   const grid = document.getElementById("appGrid");
@@ -155,12 +164,10 @@ function renderGallery() {
       </div>
       <button class="gallery-card-add" title="Add app">+</button>
     `;
-
     card.querySelector(".gallery-card-add").addEventListener("click", (e) => {
       e.stopPropagation();
       addFromGallery(item);
     });
-
     grid.appendChild(card);
   });
 }
@@ -216,7 +223,6 @@ function openModal(prefill = {}) {
   document.getElementById("fieldWidth").value = prefill.windowWidth || 1200;
   document.getElementById("fieldHeight").value = prefill.windowHeight || 800;
 
-  // Mode
   document.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.classList.toggle(
       "active",
@@ -224,12 +230,8 @@ function openModal(prefill = {}) {
     );
   });
 
-  // Icon
   updateIconPreview(prefill.icon || "🌐", prefill.iconDataUrl || null);
-
-  // View switch (gallery → library)
   switchView("library");
-
   document.getElementById("modalOverlay").classList.add("open");
   document.getElementById("fieldUrl").focus();
 }
@@ -273,7 +275,6 @@ async function saveApp() {
     return;
   }
 
-  // Ensure URL has protocol
   let finalUrl = url;
   if (!/^https?:\/\//i.test(url)) finalUrl = "https://" + url;
 
@@ -350,7 +351,7 @@ function suggestNameFromUrl(url) {
   clearTimeout(urlDebounce);
   urlDebounce = setTimeout(() => {
     const nameField = document.getElementById("fieldName");
-    if (nameField.value) return; // don't overwrite
+    if (nameField.value) return;
     try {
       const u = new URL(url.includes("://") ? url : "https://" + url);
       const parts = u.hostname.replace("www.", "").split(".");
@@ -362,6 +363,16 @@ function suggestNameFromUrl(url) {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
+  // Detect platform and set titlebar height CSS variable
+  currentPlatform = await window.webapper.getPlatform();
+  applyTitlebarHeight(currentPlatform);
+
+  // Also listen for push (main window sends it after load)
+  window.webapper.onPlatform((p) => {
+    currentPlatform = p;
+    applyTitlebarHeight(p);
+  });
+
   apps = await window.webapper.listApps();
   renderLibrary();
   renderGallery();
@@ -383,7 +394,6 @@ async function init() {
   document.getElementById("modalClose").addEventListener("click", closeModal);
   document.getElementById("btnCancel").addEventListener("click", closeModal);
   document.getElementById("btnSave").addEventListener("click", saveApp);
-
   document.getElementById("modalOverlay").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeModal();
   });
@@ -422,7 +432,6 @@ async function init() {
         imgEl.src = suggestions[0];
         imgEl.style.display = "block";
         emojiEl.style.display = "none";
-        // Store as data URL by loading into canvas
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
@@ -465,12 +474,10 @@ async function init() {
     if (contextTarget) launchApp(contextTarget);
     hideContextMenu();
   });
-
   document.getElementById("ctxEdit").addEventListener("click", () => {
     if (contextTarget) openModal(contextTarget);
     hideContextMenu();
   });
-
   document.getElementById("ctxDelete").addEventListener("click", () => {
     const target = contextTarget;
     hideContextMenu();
