@@ -28,6 +28,28 @@ app.commandLine.appendSwitch("disable-gpu-compositing");
 app.commandLine.appendSwitch("disable-software-rasterizer");
 app.commandLine.appendSwitch("no-sandbox");
 
+// Linux: Parallels and some container environments don't mount /dev/shm.
+// Fall back to a temp-dir shared memory path so Chromium doesn't hard-crash.
+if (isLinux) {
+  const os = require("os");
+  const shmPath = "/dev/shm";
+  let shmOk = false;
+  try {
+    const fs2 = require("fs");
+    fs2.accessSync(shmPath, fs2.constants.W_OK | fs2.constants.X_OK);
+    shmOk = true;
+  } catch {}
+  if (!shmOk) {
+    app.commandLine.appendSwitch(
+      "disk-cache-dir",
+      require("path").join(os.tmpdir(), "webapper-shm"),
+    );
+    // Tell Chromium to use /tmp instead of /dev/shm for shared memory
+    process.env.TMPDIR = os.tmpdir();
+    app.commandLine.appendSwitch("disable-dev-shm-usage");
+  }
+}
+
 // ── Storage ────────────────────────────────────────────────────────────────────
 const DATA_PATH = path.join(app.getPath("userData"), "webapps.json");
 function loadApps() {
@@ -687,7 +709,7 @@ function launchWebApp(webApp) {
   win.on("close", () => {
     // Snapshot size while the window object is still valid
     try {
-      // lastSize = win.getSize();
+      lastSize = win.getSize();
     } catch {}
     // Detach and destroy the site WebContentsView now, before Electron tears
     // down the BrowserWindow. Doing it here (not in "closed") avoids the

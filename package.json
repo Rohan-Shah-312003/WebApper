@@ -1,15 +1,15 @@
 {
   "name": "webapper",
   "version": "0.1.0",
-  "author": "Rohan Shah",
   "description": "Turn any website into a standalone desktop app",
   "main": "src/main.js",
+  "author": "Rohan-Shah-312003",
   "scripts": {
     "start": "electron .",
     "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win",
+    "build:win": "PYTHON=$(which python3) electron-builder --win",
     "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder --mac --win --linux",
+    "build:all": "PYTHON=$(which python3) electron-builder --mac --win --linux",
     "build:linux:arm64": "electron-builder --linux --arm64",
     "build:linux:x64": "electron-builder --linux --x64"
   },
@@ -87,37 +87,13 @@
             "x64",
             "arm64"
           ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "rpm",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "maintainer": "Webapper <webapper@example.com>",
       "description": "Turn any website into a standalone desktop app"
     },
-    "deb": {
-      "depends": [
-        "libgtk-3-0",
-        "libnotify4",
-        "libnss3",
-        "libxss1",
-        "libxtst6",
-        "xdg-utils",
-        "libatspi2.0-0",
-        "libuuid1",
-        "libsecret-1-0"
-      ]
-    }
+    "nodeGypRebuild": false,
+    "npmRebuild": false
   },
   "devDependencies": {
     "electron": "^31.0.0",
