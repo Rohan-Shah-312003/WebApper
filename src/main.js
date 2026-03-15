@@ -26,15 +26,6 @@ const isWin = process.platform === "win32";
 const isLinux = process.platform === "linux";
 
 // ── GPU / sandbox flags ──────────────────────────────────────────────────────────────────────────────
-// Disable hardware GPU acceleration. Fixes "GPU process launch failed:
-// error_code=18" on Windows machines with incompatible/missing GPU drivers,
-// virtual machines, and Remote Desktop sessions. Software rendering is used
-// instead — no visible quality difference for a web-app wrapper.
-// ── Linux: Parallels ARM64 virtio_gpu setup ───────────────────────────────────
-// The VM has /dev/dri/card0 (virtio_gpudrmfb) but Electron's EGL passthrough
-// doesn't work without ANGLE. Use SwiftShader (CPU renderer) which is bundled
-// inside Electron itself and needs no host GPU driver at all.
-// --no-sandbox + --disable-dev-shm-usage are required for AppImage environments.
 if (isLinux) {
   app.commandLine.appendSwitch("no-sandbox");
   app.commandLine.appendSwitch("disable-dev-shm-usage");
@@ -45,9 +36,7 @@ if (isLinux) {
   app.commandLine.appendSwitch("use-gl", "swiftshader");
   app.commandLine.appendSwitch("enable-unsafe-swiftshader");
   app.commandLine.appendSwitch("disable-software-rasterizer", "false");
-  // Force X11 — Wayland compositing is unavailable in Parallels ARM64
   app.commandLine.appendSwitch("ozone-platform", "x11");
-  // Shared memory fallback: use a user-writable dir inside home
   const shmFallback = require("path").join(
     require("os").homedir(),
     ".webapper-tmp",
@@ -59,7 +48,6 @@ if (isLinux) {
   process.env.TEMP = shmFallback;
   process.env.TMP = shmFallback;
 } else {
-  // Windows: disable GPU (no driver guarantee in all environments)
   app.commandLine.appendSwitch("disable-gpu");
   app.commandLine.appendSwitch("disable-gpu-compositing");
   app.commandLine.appendSwitch("disable-software-rasterizer");
@@ -82,14 +70,12 @@ function saveApps(apps) {
 // Globals
 let mainWindow = null;
 let tray = null;
-const launchedWindows = new Map(); // id → BrowserWindow
-const siteViewMap = new Map(); // id → WebContentsView
-const toolbarInfoStore = new Map(); // id → info object
+const launchedWindows = new Map();
+const siteViewMap = new Map();
+const toolbarInfoStore = new Map();
 const TOOLBAR_H = 44;
 
 // ── Title bar style per platform ──────────────────────────────────────────────
-// macOS: hiddenInset (traffic lights overlay toolbar)
-// Windows/Linux: default native title bar with custom toolbar below
 function getTitleBarOptions(isWebAppWindow = false) {
   if (isMac) {
     return {
@@ -97,10 +83,8 @@ function getTitleBarOptions(isWebAppWindow = false) {
       ...(isWebAppWindow ? { trafficLightPosition: { x: 12, y: 13 } } : {}),
     };
   }
-  // Windows & Linux: use a normal title bar; the toolbar sits below it.
   return {
     titleBarStyle: "default",
-    // Remove the default menu bar on Windows/Linux (we set our own app menu)
     autoHideMenuBar: false,
   };
 }
@@ -118,26 +102,24 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      // Linux software rendering needs backgroundThrottling disabled
       backgroundThrottling: false,
+      // Use a dedicated partition for the main UI so extensions loaded into
+      // defaultSession don't interfere with it at all
+      partition: "persist:webapper_ui",
     },
     show: false,
     paintWhenInitiallyHidden: true,
-    // Windows/Linux: show app name in title bar
     title: "Webapper",
   });
   mainWindow.loadFile(path.join(__dirname, "ui", "index.html"));
   mainWindow.once("ready-to-show", () => mainWindow.show());
 
-  // Send platform info to renderer so CSS can adapt
   mainWindow.webContents.on("did-finish-load", () => {
     mainWindow.webContents.send("platform", process.platform);
   });
 
   buildAppMenu();
 
-  // Windows/Linux: minimize to tray on close — but ONLY if the tray exists.
-  // If tray creation failed, allow normal close so the user isn't stranded.
   if (!isMac) {
     mainWindow.on("close", (e) => {
       if (!app.isQuitting && tray && !tray.isDestroyed()) {
@@ -215,19 +197,6 @@ function buildAppMenu() {
 }
 
 // ── System Tray (Windows & Linux) ─────────────────────────────────────────────
-
-/**
- * Build a guaranteed-valid 16x16 tray icon.
- *
- * Priority:
- *   1. assets/icon.ico  (Windows) / assets/icon.png (Linux) — user-supplied
- *   2. assets/icon.png  (Windows fallback if .ico missing)
- *   3. Hard-coded 16×16 purple PNG baked as a base64 data URL — always works,
- *      no file I/O required, no possibility of a 0×0 empty image crash.
- *
- * Windows crashes silently if the Tray image is 0×0 (nativeImage.createEmpty).
- * We never use createEmpty — always provide real pixels.
- */
 function buildTrayIcon() {
   const candidates = isWin
     ? [
@@ -245,9 +214,6 @@ function buildTrayIcon() {
     } catch {}
   }
 
-  // Fallback: a 16×16 indigo square encoded as a PNG data URL.
-  // Generated once; zero file-system dependency.
-  // (Pure-JS minimal PNG: IHDR + single solid-colour IDAT + IEND)
   const FALLBACK_PNG_BASE64 =
     "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAANklEQVQ4T2NkoBAwUqifYdQA" +
     "hjAIDgMGBgYGJioZwECFMBg1gIFKYTBqAAOVwmDUAAYqhQEAMAAIAAEbPL4AAAAASUVORK5CYII=";
@@ -258,14 +224,13 @@ function buildTrayIcon() {
 }
 
 function createTray() {
-  if (isMac) return; // macOS uses the Dock instead
+  if (isMac) return;
 
   try {
     tray = new Tray(buildTrayIcon());
     tray.setToolTip("Webapper");
     updateTrayMenu();
 
-    // Single-click → show/focus main window (Windows double-click also fires click)
     tray.on("click", () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show();
@@ -273,7 +238,6 @@ function createTray() {
       }
     });
 
-    // Windows: double-click also shows the window
     tray.on("double-click", () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.show();
@@ -281,8 +245,6 @@ function createTray() {
       }
     });
   } catch (err) {
-    // Tray is non-critical — log and continue. The app is still usable
-    // via the taskbar; it just won't minimise-to-tray.
     console.warn("Tray creation failed:", err.message);
   }
 }
@@ -417,7 +379,6 @@ ipcMain.handle("toolbar:getState", (_, id) => {
 });
 ipcMain.handle("toolbar:getInfo", (_, id) => toolbarInfoStore.get(id) || null);
 
-// Send platform info to toolbar renderers
 ipcMain.handle("platform:get", () => process.platform);
 
 // ── Launch web app window ──────────────────────────────────────────────────────
@@ -439,7 +400,6 @@ function launchWebApp(webApp) {
   const winH = webApp.windowHeight || 800;
 
   applyToPartition(partition);
-  // Load all installed extensions into this app's session
   loadAllExtensionsIntoPartition(partition).catch(() => {});
 
   const win = new BrowserWindow({
@@ -478,7 +438,6 @@ function launchWebApp(webApp) {
     query: { appId: webApp.id },
   });
 
-  // WebContentsView for the site
   const siteView = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -491,6 +450,7 @@ function launchWebApp(webApp) {
 
   win.contentView.addChildView(siteView);
   siteViewMap.set(webApp.id, siteView);
+  siteView.setBackgroundColor("#1a1a1f");
 
   function layout() {
     const [w, h] = win.getContentSize();
@@ -505,7 +465,6 @@ function launchWebApp(webApp) {
   win.on("resize", layout);
   siteView.webContents.loadURL(webApp.url);
 
-  // Push toolbar state to the toolbar renderer
   let toolbarReady = false;
   let pendingState = null;
 
@@ -565,7 +524,6 @@ function launchWebApp(webApp) {
     } catch {}
   });
 
-  // Popup / OAuth handling
   function siteViewAlive() {
     try {
       return !!(
@@ -710,7 +668,6 @@ function launchWebApp(webApp) {
     });
   });
 
-  // Scrollbar polish
   siteView.webContents.on("did-finish-load", () => {
     if (!siteViewAlive()) return;
     siteView.webContents
@@ -723,18 +680,11 @@ function launchWebApp(webApp) {
       .catch(() => {});
   });
 
-  // Cleanup
-  // Capture size in "close" (window still alive) so we never call getSize()
-  // in "closed" (window already destroyed — any native call throws).
   let lastSize = [winW, winH];
   win.on("close", () => {
-    // Snapshot size while the window object is still valid
     try {
       lastSize = win.getSize();
     } catch {}
-    // Detach and destroy the site WebContentsView now, before Electron tears
-    // down the BrowserWindow. Doing it here (not in "closed") avoids the
-    // "Object has been destroyed" error on contentView access.
     if (siteViewAlive()) {
       try {
         if (win.contentView) win.contentView.removeChildView(siteView);
@@ -745,7 +695,6 @@ function launchWebApp(webApp) {
     }
   });
   win.on("closed", () => {
-    // Window is fully destroyed here — only use plain JS, no Electron calls on win.
     const all = loadApps();
     const idx = all.findIndex((a) => a.id === webApp.id);
     if (idx !== -1) {
@@ -845,14 +794,20 @@ ipcMain.handle("extensions:remove", async (_, id) => {
 });
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   applyToDefaultSession();
-  initExtensions().catch(() => {});
+
+  // Init extensions first (validates dirs, patches backgrounds) — this is
+  // fast and purely synchronous file I/O, no session.loadExtension calls.
+  // Extensions are only loaded into sessions when a web app window opens.
+  try {
+    await initExtensions();
+  } catch {}
+
   createMainWindow();
   createTray();
 
   app.on("activate", () => {
-    // macOS: re-show or re-create main window on Dock click
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
@@ -873,12 +828,9 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  // macOS: keep running until explicit Cmd+Q.
   if (isMac) {
     app.quit();
     return;
   }
-  // Windows/Linux: if the tray is alive it keeps the process running.
-  // If tray creation failed, quit so the app doesn't become an invisible zombie.
   if (!tray || tray.isDestroyed()) app.quit();
 });
