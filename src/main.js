@@ -32,7 +32,7 @@ const isWin = process.platform === "win32";
 const isLinux = process.platform === "linux";
 
 // for linux, we need to set the app as a non-sandboxed app
-// GPU / sandbox flags
+// GPU / sandbox flags -> for linux
 if (isLinux) {
 	app.commandLine.appendSwitch("no-sandbox");
 	app.commandLine.appendSwitch("disable-dev-shm-usage");

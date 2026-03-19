@@ -1,4 +1,4 @@
-# Webapper 🌐
+# Webapper
 
 ### Turn any website into a real desktop app — in seconds.
 
@@ -10,12 +10,12 @@ Gmail, Notion, ChatGPT, Spotify, WhatsApp — stop juggling a million browser ta
 
 ## Download
 
-| Platform                 | Download                                                                                |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| 🍎 macOS (Apple Silicon) | [Webapper-mac-arm64.dmg](https://github.com/Rohan-Shah-312003/webapper/releases/latest) |
-| 🍎 macOS (Intel)         | [Webapper-mac-x64.dmg](https://github.com/Rohan-Shah-312003/webapper/releases/latest)   |
-| 🪟 Windows               | [Webapper-Setup.exe](https://github.com/Rohan-Shah-312003/webapper/releases/latest)     |
-| 🐧 Linux                 | [Webapper.AppImage](https://github.com/Rohan-Shah-312003/webapper/releases/latest)      |
+| Platform              | Download                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| macOS (Apple Silicon) | [Webapper-mac-arm64.dmg](https://github.com/Rohan-Shah-312003/webapper/releases/latest) |
+| macOS (Intel)         | [Webapper-mac-x64.dmg](https://github.com/Rohan-Shah-312003/webapper/releases/latest)   |
+| Windows               | [Webapper-Setup.exe](https://github.com/Rohan-Shah-312003/webapper/releases/latest)     |
+| Linux                 | [Webapper.AppImage](https://github.com/Rohan-Shah-312003/webapper/releases/latest)      |
 
 ---
 
@@ -29,28 +29,28 @@ Webapper lets you take any website — your work tools, your favourite apps, any
 
 ## Features
 
-**🗂 Stop living in browser tabs**
+**Stop living in browser tabs**
 Each app gets its own window. Alt-tab straight to Gmail. Cmd-tab straight to Notion. No more hunting through tabs.
 
-**🔐 Separate logins for everything**
+**Separate logins for everything**
 Each app is completely isolated. Log into your work Google account in Gmail and your personal one in Google Drive — at the same time, no conflicts.
 
-**🕶 Incognito mode**
+**Incognito mode**
 Need an app that never saves cookies or login sessions? One click and it's gone when you close the window.
 
-**🧩 Chrome extension support**
+**Chrome extension support**
 Install uBlock Origin, SponsorBlock, or any Chrome extension and it applies across all your web apps automatically.
 
-**🚫 Built-in ad blocking**
+**Built-in ad blocking**
 Ads and trackers are blocked by default across every app you create. No setup needed.
 
-**🎨 Make it yours**
+**Make it yours**
 Give each app a custom name, upload your own icon, or let Webapper fetch the favicon automatically.
 
-**⚡ 20 popular apps ready to go**
+**20 popular apps ready to go**
 Gmail, Notion, Slack, Figma, ChatGPT, Claude, GitHub, Spotify, WhatsApp, YouTube and more — add any of them in one click from the built-in gallery.
 
-**💾 Remembers everything**
+**Remembers everything**
 Window sizes, positions, logins — everything is saved. Your apps pick up exactly where you left off.
 
 ---
@@ -69,7 +69,7 @@ Click **"New App"** in the bottom left, paste in a URL (like `https://mail.googl
 
 Double-click the app card. It opens in its own window — just like a native app.
 
-That's it. 🎉
+That's it.
 
 ---
 
@@ -87,7 +87,7 @@ Go to the **Extensions** tab, paste in a Chrome Web Store link, and click Instal
 
 Popular ones to try:
 
-- **[uBlock Origin](https://chrome.google.com/webstore/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm)** — extra ad blocking on top of the built-in blocker
+- **[AdBlocker Ulimate](https://chromewebstore.google.com/detail/adblocker-ultimate/ohahllgiabjaoigichmmfljhkcfikeof)** — extra ad blocking on top of the built-in blocker
 - **[SponsorBlock](https://chrome.google.com/webstore/detail/sponsorblock-for-youtube/mnjggcdmjocbbbhaepdhchncahnbgone)** — skip sponsored segments on YouTube
 
 ---
@@ -133,4 +133,4 @@ Found a bug? Have an idea? Open an issue or pull request on [GitHub](https://git
 
 ---
 
-<p align="center">Made with ❤️ · Free forever · Open source</p>
+<p align="center">Free forever · Open source</p>
