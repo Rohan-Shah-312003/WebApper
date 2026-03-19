@@ -1,101 +1,104 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'"
-    />
-    <title>Toolbar</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="./toolbar.css" />
-  </head>
-  <body>
-    <div class="bar" id="bar">
-      <!-- <button class="btn" id="back" title="Go back" disabled>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-        >
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-      </button>
-      <button class="btn" id="fwd" title="Go forward" disabled>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-        >
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
-      <div class="sep"></div>
-      <button class="btn" id="reload" title="Reload">
-        <svg
-          id="ri"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-        >
-          <polyline points="23 4 23 10 17 10" />
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-        </svg>
-      </button>
-      <div class="title" id="title">Loading...</div>
-      <span class="badge" id="badge"></span> -->
-    </div>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'"
+		/>
+		<title>Toolbar</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="stylesheet" href="./toolbar.css" />
+	</head>
+	<body>
+		<div class="bar" id="bar">
+			<button class="btn" id="back" title="Go back" disabled>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+				>
+					<polyline points="15 18 9 12 15 6" />
+				</svg>
+			</button>
+			<button class="btn" id="fwd" title="Go forward" disabled>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+				>
+					<polyline points="9 18 15 12 9 6" />
+				</svg>
+			</button>
+			<div class="sep"></div>
+			<button class="btn" id="reload" title="Reload">
+				<svg
+					id="ri"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+				>
+					<polyline points="23 4 23 10 17 10" />
+					<path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+				</svg>
+			</button>
+			<div class="title" id="title">Loading...</div>
+			<span class="badge" id="badge"></span>
+		</div>
 
-    <script>
-      const ID = new URLSearchParams(location.search).get("appId") || "";
-      const backBtn = document.getElementById("back");
-      const fwdBtn = document.getElementById("fwd");
-      const reloadBtn = document.getElementById("reload");
-      const reloadIcon = document.getElementById("ri");
-      const titleEl = document.getElementById("title");
-      const bar = document.getElementById("bar");
+		<script>
+			const ID = new URLSearchParams(location.search).get("appId") || "";
+			const backBtn = document.getElementById("back");
+			const fwdBtn = document.getElementById("fwd");
+			const reloadBtn = document.getElementById("reload");
+			const reloadIcon = document.getElementById("ri");
+			const titleEl = document.getElementById("title");
+			const bar = document.getElementById("bar");
 
-      // Adapt left padding based on platform:
-      // macOS hiddenInset needs 80px to clear traffic-light buttons.
-      // Windows/Linux have a native title bar above; no offset needed.
-      window.toolbar.getPlatform().then((platform) => {
-        if (platform !== "darwin") {
-          bar.style.paddingLeft = "10px";
-        }
-      });
+			// Adapt left padding based on platform:
+			// macOS hiddenInset needs 80px to clear traffic-light buttons.
+			// Windows/Linux have a native title bar above; no offset needed.
+			window.toolbar.getPlatform().then(platform => {
+				if (platform !== "darwin") {
+					bar.style.paddingLeft = "10px";
+				}
+			});
 
-      function applyState(s) {
-        if (!s) return;
-        if (s.canBack !== undefined) backBtn.disabled = !s.canBack;
-        if (s.canForward !== undefined) fwdBtn.disabled = !s.canForward;
-        if (s.loading === true) reloadIcon.classList.add("spin");
-        else if (s.loading === false) reloadIcon.classList.remove("spin");
-        if (s.title) titleEl.textContent = s.title;
-      }
+			function applyState(s) {
+				if (!s) return;
+				if (s.canBack !== undefined) backBtn.disabled = !s.canBack;
+				if (s.canForward !== undefined) fwdBtn.disabled = !s.canForward;
+				if (s.loading === true) reloadIcon.classList.add("spin");
+				else if (s.loading === false)
+					reloadIcon.classList.remove("spin");
+				if (s.title) titleEl.textContent = s.title;
+			}
 
-      backBtn.addEventListener("click", () => window.toolbar.back(ID));
-      fwdBtn.addEventListener("click", () => window.toolbar.forward(ID));
-      reloadBtn.addEventListener("click", () => window.toolbar.reload(ID));
+			backBtn.addEventListener("click", () => window.toolbar.back(ID));
+			fwdBtn.addEventListener("click", () => window.toolbar.forward(ID));
+			reloadBtn.addEventListener("click", () =>
+				window.toolbar.reload(ID),
+			);
 
-      window.toolbar.onState(applyState);
+			window.toolbar.onState(applyState);
 
-      window.toolbar.getInfo(ID).then((info) => {
-        if (info) titleEl.textContent = info.name;
-      });
-      window.toolbar.getState(ID).then(applyState);
-    </script>
-  </body>
+			window.toolbar.getInfo(ID).then(info => {
+				if (info) titleEl.textContent = info.name;
+			});
+			window.toolbar.getState(ID).then(applyState);
+		</script>
+	</body>
 </html>

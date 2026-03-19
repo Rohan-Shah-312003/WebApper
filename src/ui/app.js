@@ -7,156 +7,176 @@ let currentPlatform = "darwin"; // updated after init
 
 // ── Gallery data ───────────────────────────────────────────────────────────────
 const GALLERY = [
-  {
-    name: "Gmail",
-    url: "https://mail.google.com",
-    icon: "📧",
-    mode: "standard",
-  },
-  {
-    name: "Google Calendar",
-    url: "https://calendar.google.com",
-    icon: "📅",
-    mode: "standard",
-  },
-  {
-    name: "Google Drive",
-    url: "https://drive.google.com",
-    icon: "📁",
-    mode: "tabbed",
-  },
-  {
-    name: "Google Docs",
-    url: "https://docs.google.com",
-    icon: "📝",
-    mode: "tabbed",
-  },
-  {
-    name: "Notion",
-    url: "https://www.notion.so",
-    icon: "🗒",
-    mode: "standard",
-  },
-  { name: "Slack", url: "https://app.slack.com", icon: "💬", mode: "standard" },
-  { name: "Linear", url: "https://linear.app", icon: "📐", mode: "standard" },
-  { name: "Figma", url: "https://www.figma.com", icon: "🎨", mode: "tabbed" },
-  { name: "GitHub", url: "https://github.com", icon: "🐙", mode: "tabbed" },
-  {
-    name: "ChatGPT",
-    url: "https://chat.openai.com",
-    icon: "🤖",
-    mode: "standard",
-  },
-  { name: "Claude", url: "https://claude.ai", icon: "🧠", mode: "standard" },
-  { name: "YouTube", url: "https://youtube.com", icon: "▶️", mode: "standard" },
-  {
-    name: "Spotify Web",
-    url: "https://open.spotify.com",
-    icon: "🎵",
-    mode: "standard",
-  },
-  { name: "Twitter / X", url: "https://x.com", icon: "𝕏", mode: "standard" },
-  { name: "Trello", url: "https://trello.com", icon: "📋", mode: "tabbed" },
-  { name: "Airtable", url: "https://airtable.com", icon: "📊", mode: "tabbed" },
-  {
-    name: "WhatsApp Web",
-    url: "https://web.whatsapp.com",
-    icon: "💚",
-    mode: "standard",
-  },
-  { name: "Reddit", url: "https://reddit.com", icon: "🔴", mode: "tabbed" },
-  { name: "Jira", url: "https://id.atlassian.com", icon: "🔵", mode: "tabbed" },
-  { name: "Plex", url: "https://app.plex.tv", icon: "🎬", mode: "standard" },
+	{
+		name: "Gmail",
+		url: "https://mail.google.com",
+		icon: "📧",
+		mode: "standard",
+	},
+	{
+		name: "Google Calendar",
+		url: "https://calendar.google.com",
+		icon: "📅",
+		mode: "standard",
+	},
+	{
+		name: "Google Drive",
+		url: "https://drive.google.com",
+		icon: "📁",
+		mode: "tabbed",
+	},
+	{
+		name: "Google Docs",
+		url: "https://docs.google.com",
+		icon: "📝",
+		mode: "tabbed",
+	},
+	{
+		name: "Notion",
+		url: "https://www.notion.so",
+		icon: "🗒",
+		mode: "standard",
+	},
+	{
+		name: "Slack",
+		url: "https://app.slack.com",
+		icon: "💬",
+		mode: "standard",
+	},
+	{ name: "Linear", url: "https://linear.app", icon: "📐", mode: "standard" },
+	{ name: "Figma", url: "https://www.figma.com", icon: "🎨", mode: "tabbed" },
+	{ name: "GitHub", url: "https://github.com", icon: "🐙", mode: "tabbed" },
+	{
+		name: "ChatGPT",
+		url: "https://chat.openai.com",
+		icon: "🤖",
+		mode: "standard",
+	},
+	{ name: "Claude", url: "https://claude.ai", icon: "🧠", mode: "standard" },
+	{
+		name: "YouTube",
+		url: "https://youtube.com",
+		icon: "▶️",
+		mode: "standard",
+	},
+	{
+		name: "Spotify Web",
+		url: "https://open.spotify.com",
+		icon: "🎵",
+		mode: "standard",
+	},
+	{ name: "Twitter / X", url: "https://x.com", icon: "𝕏", mode: "standard" },
+	{ name: "Trello", url: "https://trello.com", icon: "📋", mode: "tabbed" },
+	{
+		name: "Airtable",
+		url: "https://airtable.com",
+		icon: "📊",
+		mode: "tabbed",
+	},
+	{
+		name: "WhatsApp Web",
+		url: "https://web.whatsapp.com",
+		icon: "💚",
+		mode: "standard",
+	},
+	{ name: "Reddit", url: "https://reddit.com", icon: "🔴", mode: "tabbed" },
+	{
+		name: "Jira",
+		url: "https://id.atlassian.com",
+		icon: "🔵",
+		mode: "tabbed",
+	},
+	{ name: "Plex", url: "https://app.plex.tv", icon: "🎬", mode: "standard" },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+	return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 function hostname(url) {
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
+	try {
+		return new URL(url).hostname.replace("www.", "");
+	} catch {
+		return url;
+	}
 }
 
 function modeClass(mode) {
-  return (
-    {
-      standard: "badge-standard",
-      tabbed: "badge-tabbed",
-      incognito: "badge-incognito",
-    }[mode] || "badge-standard"
-  );
+	return (
+		{
+			standard: "badge-standard",
+			tabbed: "badge-tabbed",
+			incognito: "badge-incognito",
+		}[mode] || "badge-standard"
+	);
 }
 
 // ── Platform-aware titlebar height ────────────────────────────────────────────
 function applyTitlebarHeight(platform) {
-  // macOS hiddenInset overlays ~28px of content; on Windows/Linux the native
-  // system title bar sits outside the client area so no extra padding is needed.
-  const h = platform === "darwin" ? "28px" : "0px";
-  document.documentElement.style.setProperty("--titlebar-h", h);
+	// macOS hiddenInset overlays ~28px of content; on Windows/Linux the native
+	// system title bar sits outside the client area so no extra padding is needed.
+	const h = platform === "darwin" ? "28px" : "0px";
+	document.documentElement.style.setProperty("--titlebar-h", h);
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
 function renderLibrary() {
-  const grid = document.getElementById("appGrid");
-  const empty = document.getElementById("emptyState");
-  const search = document.getElementById("searchInput").value.toLowerCase();
+	const grid = document.getElementById("appGrid");
+	const empty = document.getElementById("emptyState");
+	const search = document.getElementById("searchInput").value.toLowerCase();
 
-  const filtered = apps.filter((a) => {
-    const matchSearch =
-      !search ||
-      a.name.toLowerCase().includes(search) ||
-      a.url.toLowerCase().includes(search);
-    const matchFilter = currentFilter === "all" || a.mode === currentFilter;
-    return matchSearch && matchFilter;
-  });
+	const filtered = apps.filter(a => {
+		const matchSearch =
+			!search ||
+			a.name.toLowerCase().includes(search) ||
+			a.url.toLowerCase().includes(search);
+		const matchFilter = currentFilter === "all" || a.mode === currentFilter;
+		return matchSearch && matchFilter;
+	});
 
-  if (filtered.length === 0) {
-    grid.style.display = "none";
-    empty.style.display = "flex";
-    return;
-  }
+	if (filtered.length === 0) {
+		grid.style.display = "none";
+		empty.style.display = "flex";
+		return;
+	}
 
-  grid.style.display = "grid";
-  empty.style.display = "none";
-  grid.innerHTML = "";
+	grid.style.display = "grid";
+	empty.style.display = "none";
+	grid.innerHTML = "";
 
-  filtered.forEach((app, i) => {
-    const card = document.createElement("div");
-    card.className = "app-card";
-    card.style.animationDelay = `${i * 0.04}s`;
-    card.dataset.id = app.id;
+	filtered.forEach((app, i) => {
+		const card = document.createElement("div");
+		card.className = "app-card";
+		card.style.animationDelay = `${i * 0.04}s`;
+		card.dataset.id = app.id;
 
-    const iconHtml = app.iconDataUrl
-      ? `<img src="${app.iconDataUrl}" alt="${app.name}" />`
-      : `<span>${app.icon || "🌐"}</span>`;
+		const iconHtml = app.iconDataUrl
+			? `<img src="${app.iconDataUrl}" alt="${app.name}" />`
+			: `<span>${app.icon || "🌐"}</span>`;
 
-    card.innerHTML = `
+		card.innerHTML = `
       <span class="app-card-badge ${modeClass(app.mode)}">${app.mode}</span>
       <div class="app-card-icon">${iconHtml}</div>
       <div class="app-card-name">${escHtml(app.name)}</div>
       <div class="app-card-url">${escHtml(hostname(app.url))}</div>
     `;
 
-    card.addEventListener("dblclick", () => launchApp(app));
-    card.addEventListener("click", () => launchApp(app));
-    card.addEventListener("contextmenu", (e) => showContextMenu(e, app));
-    grid.appendChild(card);
-  });
+		card.addEventListener("dblclick", () => launchApp(app));
+		card.addEventListener("click", () => launchApp(app));
+		card.addEventListener("contextmenu", e => showContextMenu(e, app));
+		grid.appendChild(card);
+	});
 }
 
 function renderGallery() {
-  const grid = document.getElementById("galleryGrid");
-  grid.innerHTML = "";
+	const grid = document.getElementById("galleryGrid");
+	grid.innerHTML = "";
 
-  GALLERY.forEach((item) => {
-    const card = document.createElement("div");
-    card.className = "gallery-card";
-    card.innerHTML = `
+	GALLERY.forEach(item => {
+		const card = document.createElement("div");
+		card.className = "gallery-card";
+		card.innerHTML = `
       <div class="gallery-card-icon">${item.icon}</div>
       <div class="gallery-card-info">
         <div class="gallery-card-name">${escHtml(item.name)}</div>
@@ -164,233 +184,238 @@ function renderGallery() {
       </div>
       <button class="gallery-card-add" title="Add app">+</button>
     `;
-    card.querySelector(".gallery-card-add").addEventListener("click", (e) => {
-      e.stopPropagation();
-      addFromGallery(item);
-    });
-    grid.appendChild(card);
-  });
+		card.querySelector(".gallery-card-add").addEventListener("click", e => {
+			e.stopPropagation();
+			addFromGallery(item);
+		});
+		grid.appendChild(card);
+	});
 }
 
 function escHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+	return String(str)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;");
 }
 
 // ── App actions ────────────────────────────────────────────────────────────────
 async function launchApp(app) {
-  await window.webapper.launchApp(app);
+	await window.webapper.launchApp(app);
 }
 
 async function deleteApp(id) {
-  if (!confirm("Delete this app?")) return;
-  apps = apps.filter((a) => a.id !== id);
-  await window.webapper.deleteApp(id);
-  renderLibrary();
+	if (!confirm("Delete this app?")) return;
+	apps = apps.filter(a => a.id !== id);
+	await window.webapper.deleteApp(id);
+	renderLibrary();
 }
 
 function addFromGallery(item) {
-  openModal({
-    name: item.name,
-    url: item.url,
-    icon: item.icon,
-    mode: item.mode,
-  });
+	openModal({
+		name: item.name,
+		url: item.url,
+		icon: item.icon,
+		mode: item.mode,
+	});
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
 let modalIconDataUrl = null;
 
 function openModal(prefill = {}) {
-  editingId = prefill.id || null;
-  modalIconDataUrl = prefill.iconDataUrl || null;
+	editingId = prefill.id || null;
+	modalIconDataUrl = prefill.iconDataUrl || null;
 
-  document.getElementById("modalTitle").textContent = editingId
-    ? "Edit App"
-    : "New App";
-  document.getElementById("btnSave").textContent = editingId
-    ? "Save Changes"
-    : "Create App";
+	document.getElementById("modalTitle").textContent = editingId
+		? "Edit App"
+		: "New App";
+	document.getElementById("btnSave").textContent = editingId
+		? "Save Changes"
+		: "Create App";
 
-  document.getElementById("fieldUrl").value = prefill.url || "";
-  document.getElementById("fieldName").value = prefill.name || "";
-  document.getElementById("fieldWhitelist").value = (
-    prefill.whitelist || ["google.com", "accounts.google.com"]
-  ).join("\n");
-  document.getElementById("fieldWidth").value = prefill.windowWidth || 1200;
-  document.getElementById("fieldHeight").value = prefill.windowHeight || 800;
+	document.getElementById("fieldUrl").value = prefill.url || "";
+	document.getElementById("fieldName").value = prefill.name || "";
+	document.getElementById("fieldWhitelist").value = (
+		prefill.whitelist || ["google.com", "accounts.google.com"]
+	).join("\n");
+	document.getElementById("fieldWidth").value = prefill.windowWidth || 1200;
+	document.getElementById("fieldHeight").value = prefill.windowHeight || 800;
 
-  document.querySelectorAll(".mode-btn").forEach((btn) => {
-    btn.classList.toggle(
-      "active",
-      btn.dataset.mode === (prefill.mode || "standard"),
-    );
-  });
+	document.querySelectorAll(".mode-btn").forEach(btn => {
+		btn.classList.toggle(
+			"active",
+			btn.dataset.mode === (prefill.mode || "standard"),
+		);
+	});
 
-  updateIconPreview(prefill.icon || "🌐", prefill.iconDataUrl || null);
-  switchView("library");
-  document.getElementById("modalOverlay").classList.add("open");
-  document.getElementById("fieldUrl").focus();
+	updateIconPreview(prefill.icon || "🌐", prefill.iconDataUrl || null);
+	switchView("library");
+	document.getElementById("modalOverlay").classList.add("open");
+	document.getElementById("fieldUrl").focus();
 }
 
 function closeModal() {
-  document.getElementById("modalOverlay").classList.remove("open");
-  editingId = null;
-  modalIconDataUrl = null;
+	document.getElementById("modalOverlay").classList.remove("open");
+	editingId = null;
+	modalIconDataUrl = null;
 }
 
 function updateIconPreview(emoji, dataUrl) {
-  const emojiEl = document.getElementById("iconEmoji");
-  const imgEl = document.getElementById("iconImg");
-  if (dataUrl) {
-    emojiEl.style.display = "none";
-    imgEl.style.display = "block";
-    imgEl.src = dataUrl;
-    modalIconDataUrl = dataUrl;
-  } else {
-    emojiEl.style.display = "";
-    imgEl.style.display = "none";
-    emojiEl.textContent = emoji || "🌐";
-    modalIconDataUrl = null;
-  }
+	const emojiEl = document.getElementById("iconEmoji");
+	const imgEl = document.getElementById("iconImg");
+	if (dataUrl) {
+		emojiEl.style.display = "none";
+		imgEl.style.display = "block";
+		imgEl.src = dataUrl;
+		modalIconDataUrl = dataUrl;
+	} else {
+		emojiEl.style.display = "";
+		imgEl.style.display = "none";
+		emojiEl.textContent = emoji || "🌐";
+		modalIconDataUrl = null;
+	}
 }
 
 function getSelectedMode() {
-  return document.querySelector(".mode-btn.active")?.dataset.mode || "standard";
+	return (
+		document.querySelector(".mode-btn.active")?.dataset.mode || "standard"
+	);
 }
 
 async function saveApp() {
-  const url = document.getElementById("fieldUrl").value.trim();
-  const name = document.getElementById("fieldName").value.trim();
+	const url = document.getElementById("fieldUrl").value.trim();
+	const name = document.getElementById("fieldName").value.trim();
 
-  if (!url) {
-    document.getElementById("fieldUrl").focus();
-    return;
-  }
-  if (!name) {
-    document.getElementById("fieldName").focus();
-    return;
-  }
+	if (!url) {
+		document.getElementById("fieldUrl").focus();
+		return;
+	}
+	if (!name) {
+		document.getElementById("fieldName").focus();
+		return;
+	}
 
-  let finalUrl = url;
-  if (!/^https?:\/\//i.test(url)) finalUrl = "https://" + url;
+	let finalUrl = url;
+	if (!/^https?:\/\//i.test(url)) finalUrl = "https://" + url;
 
-  const whitelistRaw = document.getElementById("fieldWhitelist").value.trim();
-  const whitelist = whitelistRaw
-    ? whitelistRaw
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : [];
+	const whitelistRaw = document.getElementById("fieldWhitelist").value.trim();
+	const whitelist = whitelistRaw
+		? whitelistRaw
+				.split("\n")
+				.map(s => s.trim())
+				.filter(Boolean)
+		: [];
 
-  const appData = {
-    id: editingId || uid(),
-    name,
-    url: finalUrl,
-    icon: modalIconDataUrl
-      ? null
-      : document.getElementById("iconEmoji").textContent || "🌐",
-    iconDataUrl: modalIconDataUrl,
-    mode: getSelectedMode(),
-    whitelist,
-    windowWidth: parseInt(document.getElementById("fieldWidth").value) || 1200,
-    windowHeight: parseInt(document.getElementById("fieldHeight").value) || 800,
-    createdAt: editingId ? undefined : new Date().toISOString(),
-    lastOpened: null,
-  };
+	const appData = {
+		id: editingId || uid(),
+		name,
+		url: finalUrl,
+		icon: modalIconDataUrl
+			? null
+			: document.getElementById("iconEmoji").textContent || "🌐",
+		iconDataUrl: modalIconDataUrl,
+		mode: getSelectedMode(),
+		whitelist,
+		windowWidth:
+			parseInt(document.getElementById("fieldWidth").value) || 1200,
+		windowHeight:
+			parseInt(document.getElementById("fieldHeight").value) || 800,
+		createdAt: editingId ? undefined : new Date().toISOString(),
+		lastOpened: null,
+	};
 
-  if (editingId) {
-    const idx = apps.findIndex((a) => a.id === editingId);
-    if (idx !== -1) {
-      appData.createdAt = apps[idx].createdAt;
-      appData.lastOpened = apps[idx].lastOpened;
-      apps[idx] = appData;
-    }
-  } else {
-    apps.unshift(appData);
-  }
+	if (editingId) {
+		const idx = apps.findIndex(a => a.id === editingId);
+		if (idx !== -1) {
+			appData.createdAt = apps[idx].createdAt;
+			appData.lastOpened = apps[idx].lastOpened;
+			apps[idx] = appData;
+		}
+	} else {
+		apps.unshift(appData);
+	}
 
-  await window.webapper.saveApps(apps);
-  closeModal();
-  renderLibrary();
+	await window.webapper.saveApps(apps);
+	closeModal();
+	renderLibrary();
 }
 
 // ── Context menu ───────────────────────────────────────────────────────────────
 function showContextMenu(e, app) {
-  e.preventDefault();
-  contextTarget = app;
-  const menu = document.getElementById("contextMenu");
-  menu.style.display = "block";
-  menu.style.left = `${Math.min(e.clientX, window.innerWidth - 170)}px`;
-  menu.style.top = `${Math.min(e.clientY, window.innerHeight - 110)}px`;
+	e.preventDefault();
+	contextTarget = app;
+	const menu = document.getElementById("contextMenu");
+	menu.style.display = "block";
+	menu.style.left = `${Math.min(e.clientX, window.innerWidth - 170)}px`;
+	menu.style.top = `${Math.min(e.clientY, window.innerHeight - 110)}px`;
 }
 
 function hideContextMenu() {
-  document.getElementById("contextMenu").style.display = "none";
-  contextTarget = null;
+	document.getElementById("contextMenu").style.display = "none";
+	contextTarget = null;
 }
 
 // ── View switching ─────────────────────────────────────────────────────────────
 function switchView(viewId) {
-  document
-    .querySelectorAll(".view")
-    .forEach((v) => v.classList.remove("active"));
-  document.getElementById(`view-${viewId}`).classList.add("active");
-  document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.view === viewId);
-  });
-  if (viewId === "gallery") renderGallery();
-  if (viewId === "extensions") renderExtensions();
+	document
+		.querySelectorAll(".view")
+		.forEach(v => v.classList.remove("active"));
+	document.getElementById(`view-${viewId}`).classList.add("active");
+	document.querySelectorAll(".nav-item").forEach(btn => {
+		btn.classList.toggle("active", btn.dataset.view === viewId);
+	});
+	if (viewId === "gallery") renderGallery();
+	if (viewId === "extensions") renderExtensions();
 }
 
 // ── URL → name suggestion ──────────────────────────────────────────────────────
 let urlDebounce;
 function suggestNameFromUrl(url) {
-  clearTimeout(urlDebounce);
-  urlDebounce = setTimeout(() => {
-    const nameField = document.getElementById("fieldName");
-    if (nameField.value) return;
-    try {
-      const u = new URL(url.includes("://") ? url : "https://" + url);
-      const parts = u.hostname.replace("www.", "").split(".");
-      if (parts[0])
-        nameField.value = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-    } catch {}
-  }, 400);
+	clearTimeout(urlDebounce);
+	urlDebounce = setTimeout(() => {
+		const nameField = document.getElementById("fieldName");
+		if (nameField.value) return;
+		try {
+			const u = new URL(url.includes("://") ? url : "https://" + url);
+			const parts = u.hostname.replace("www.", "").split(".");
+			if (parts[0])
+				nameField.value =
+					parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+		} catch {}
+	}, 400);
 }
 
 // ── Extensions ─────────────────────────────────────────────────────────────────
 async function renderExtensions() {
-  const list = document.getElementById("extList");
-  const empty = document.getElementById("extEmpty");
-  const exts = await window.extensions.list();
+	const list = document.getElementById("extList");
+	const empty = document.getElementById("extEmpty");
+	const exts = await window.extensions.list();
 
-  if (exts.length === 0) {
-    list.style.display = "none";
-    empty.style.display = "flex";
-    return;
-  }
+	if (exts.length === 0) {
+		list.style.display = "none";
+		empty.style.display = "flex";
+		return;
+	}
 
-  list.style.display = "flex";
-  empty.style.display = "none";
-  list.innerHTML = "";
+	list.style.display = "flex";
+	empty.style.display = "none";
+	list.innerHTML = "";
 
-  exts.forEach((ext) => {
-    const card = document.createElement("div");
-    card.className = "ext-card";
+	exts.forEach(ext => {
+		const card = document.createElement("div");
+		card.className = "ext-card";
 
-    const iconHtml = ext.iconPath
-      ? `<img src="file://${ext.iconPath}" alt="" />`
-      : "🧩";
+		const iconHtml = ext.iconPath
+			? `<img src="file://${ext.iconPath}" alt="" />`
+			: "🧩";
 
-    const mv3Warning = ext.mv3Warning || "";
-    const mv3Badge = mv3Warning
-      ? `<span class="ext-mv3-badge" title="${escHtml(mv3Warning)}">MV3 ⚠</span>`
-      : "";
-    card.innerHTML = `
+		const mv3Warning = ext.mv3Warning || "";
+		const mv3Badge = mv3Warning
+			? `<span class="ext-mv3-badge" title="${escHtml(mv3Warning)}">MV3 ⚠</span>`
+			: "";
+		card.innerHTML = `
       <div class="ext-card-icon">${iconHtml}</div>
       <div class="ext-card-info">
         <div class="ext-card-name">${escHtml(ext.name || "")} ${mv3Badge}</div>
@@ -406,224 +431,229 @@ async function renderExtensions() {
       </button>
     `;
 
-    card
-      .querySelector(".ext-card-remove")
-      .addEventListener("click", async () => {
-        if (!confirm(`Remove "${ext.name}"?`)) return;
-        const res = await window.extensions.remove(ext.id);
-        if (res.ok) {
-          renderExtensions();
-        } else {
-          alert("Failed to remove: " + res.error);
-        }
-      });
+		card.querySelector(".ext-card-remove").addEventListener(
+			"click",
+			async () => {
+				if (!confirm(`Remove "${ext.name}"?`)) return;
+				const res = await window.extensions.remove(ext.id);
+				if (res.ok) {
+					renderExtensions();
+				} else {
+					alert("Failed to remove: " + res.error);
+				}
+			},
+		);
 
-    list.appendChild(card);
-  });
+		list.appendChild(card);
+	});
 }
 
 function setExtStatus(msg, type = "") {
-  const el = document.getElementById("extStatus");
-  el.textContent = msg;
-  el.className = "ext-install-status " + type;
+	const el = document.getElementById("extStatus");
+	el.textContent = msg;
+	el.className = "ext-install-status " + type;
 }
 
 async function installExtension() {
-  const input = document.getElementById("extUrlInput").value.trim();
-  if (!input) return;
+	const input = document.getElementById("extUrlInput").value.trim();
+	if (!input) return;
 
-  setExtStatus("Installing…", "loading");
-  document.getElementById("btnInstallExt").disabled = true;
+	setExtStatus("Installing…", "loading");
+	document.getElementById("btnInstallExt").disabled = true;
 
-  const res = await window.extensions.install(input);
+	const res = await window.extensions.install(input);
 
-  document.getElementById("btnInstallExt").disabled = false;
+	document.getElementById("btnInstallExt").disabled = false;
 
-  if (res.ok) {
-    const mvNote = res.extension.mv3Warning
-      ? " (MV3: content scripts work, background scripts limited)"
-      : "";
-    setExtStatus(
-      `✓ "${res.extension.name}" installed!${mvNote} Restart any open web apps to activate.`,
-      "ok",
-    );
-    document.getElementById("extUrlInput").value = "";
-    renderExtensions();
-  } else {
-    setExtStatus("✗ " + res.error, "err");
-  }
+	if (res.ok) {
+		const mvNote = res.extension.mv3Warning
+			? " (MV3: content scripts work, background scripts limited)"
+			: "";
+		setExtStatus(
+			`✓ "${res.extension.name}" installed!${mvNote} Restart any open web apps to activate.`,
+			"ok",
+		);
+		document.getElementById("extUrlInput").value = "";
+		renderExtensions();
+	} else {
+		setExtStatus("✗ " + res.error, "err");
+	}
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  // Detect platform — wrap in try/catch so a failed IPC never blocks rendering
-  try {
-    currentPlatform = await window.webapper.getPlatform();
-    applyTitlebarHeight(currentPlatform);
-  } catch (e) {
-    applyTitlebarHeight("darwin"); // safe fallback
-  }
+	// Detect platform — wrap in try/catch so a failed IPC never blocks rendering
+	try {
+		currentPlatform = await window.webapper.getPlatform();
+		applyTitlebarHeight(currentPlatform);
+	} catch (e) {
+		applyTitlebarHeight("darwin"); // safe fallback
+	}
 
-  // Also listen for push (main window sends it after load)
-  try {
-    window.webapper.onPlatform((p) => {
-      currentPlatform = p;
-      applyTitlebarHeight(p);
-    });
-  } catch (e) {}
+	// Also listen for push (main window sends it after load)
+	try {
+		window.webapper.onPlatform(p => {
+			currentPlatform = p;
+			applyTitlebarHeight(p);
+		});
+	} catch (e) {}
 
-  try {
-    apps = await window.webapper.listApps();
-    console.log(
-      "[webapper] loaded apps:",
-      apps ? apps.length : "null",
-      JSON.stringify(apps).slice(0, 200),
-    );
-  } catch (e) {
-    console.error("[webapper] listApps failed:", e);
-    apps = [];
-  }
-  renderLibrary();
-  renderGallery();
+	try {
+		apps = await window.webapper.listApps();
+		console.log(
+			"[webapper] loaded apps:",
+			apps ? apps.length : "null",
+			JSON.stringify(apps).slice(0, 200),
+		);
+	} catch (e) {
+		console.error("[webapper] listApps failed:", e);
+		apps = [];
+	}
+	renderLibrary();
+	renderGallery();
 
-  // Nav
-  document.querySelectorAll(".nav-item").forEach((btn) => {
-    btn.addEventListener("click", () => switchView(btn.dataset.view));
-  });
+	// Nav
+	document.querySelectorAll(".nav-item").forEach(btn => {
+		btn.addEventListener("click", () => switchView(btn.dataset.view));
+	});
 
-  // New app buttons
-  document
-    .getElementById("btnNewApp")
-    .addEventListener("click", () => openModal());
-  document
-    .getElementById("btnNewAppEmpty")
-    .addEventListener("click", () => openModal());
+	// New app buttons
+	document
+		.getElementById("btnNewApp")
+		.addEventListener("click", () => openModal());
+	document
+		.getElementById("btnNewAppEmpty")
+		.addEventListener("click", () => openModal());
 
-  // Modal
-  document.getElementById("modalClose").addEventListener("click", closeModal);
-  document.getElementById("btnCancel").addEventListener("click", closeModal);
-  document.getElementById("btnSave").addEventListener("click", saveApp);
-  document.getElementById("modalOverlay").addEventListener("click", (e) => {
-    if (e.target === e.currentTarget) closeModal();
-  });
+	// Modal
+	document.getElementById("modalClose").addEventListener("click", closeModal);
+	document.getElementById("btnCancel").addEventListener("click", closeModal);
+	document.getElementById("btnSave").addEventListener("click", saveApp);
+	document.getElementById("modalOverlay").addEventListener("click", e => {
+		if (e.target === e.currentTarget) closeModal();
+	});
 
-  // Mode selector
-  document.querySelectorAll(".mode-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".mode-btn")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-    });
-  });
+	// Mode selector
+	document.querySelectorAll(".mode-btn").forEach(btn => {
+		btn.addEventListener("click", () => {
+			document
+				.querySelectorAll(".mode-btn")
+				.forEach(b => b.classList.remove("active"));
+			btn.classList.add("active");
+		});
+	});
 
-  // Icon actions
-  document.getElementById("btnPickIcon").addEventListener("click", async () => {
-    const dataUrl = await window.webapper.pickImage();
-    if (dataUrl) updateIconPreview(null, dataUrl);
-  });
+	// Icon actions
+	document
+		.getElementById("btnPickIcon")
+		.addEventListener("click", async () => {
+			const dataUrl = await window.webapper.pickImage();
+			if (dataUrl) updateIconPreview(null, dataUrl);
+		});
 
-  document.getElementById("iconPreview").addEventListener("click", async () => {
-    const dataUrl = await window.webapper.pickImage();
-    if (dataUrl) updateIconPreview(null, dataUrl);
-  });
+	document
+		.getElementById("iconPreview")
+		.addEventListener("click", async () => {
+			const dataUrl = await window.webapper.pickImage();
+			if (dataUrl) updateIconPreview(null, dataUrl);
+		});
 
-  document
-    .getElementById("btnFetchFavicon")
-    .addEventListener("click", async () => {
-      const url = document.getElementById("fieldUrl").value.trim();
-      if (!url) return;
-      const suggestions = await window.webapper.fetchFavicon(url);
-      if (suggestions && suggestions[0]) {
-        updateIconPreview(null, null);
-        const imgEl = document.getElementById("iconImg");
-        const emojiEl = document.getElementById("iconEmoji");
-        imgEl.src = suggestions[0];
-        imgEl.style.display = "block";
-        emojiEl.style.display = "none";
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = 128;
-          canvas.height = 128;
-          canvas.getContext("2d").drawImage(img, 0, 0, 128, 128);
-          try {
-            modalIconDataUrl = canvas.toDataURL("image/png");
-          } catch {}
-        };
-        img.src = suggestions[0];
-      }
-    });
+	document
+		.getElementById("btnFetchFavicon")
+		.addEventListener("click", async () => {
+			const url = document.getElementById("fieldUrl").value.trim();
+			if (!url) return;
+			const suggestions = await window.webapper.fetchFavicon(url);
+			if (suggestions && suggestions[0]) {
+				updateIconPreview(null, null);
+				const imgEl = document.getElementById("iconImg");
+				const emojiEl = document.getElementById("iconEmoji");
+				imgEl.src = suggestions[0];
+				imgEl.style.display = "block";
+				emojiEl.style.display = "none";
+				const img = new Image();
+				img.crossOrigin = "anonymous";
+				img.onload = () => {
+					const canvas = document.createElement("canvas");
+					canvas.width = 128;
+					canvas.height = 128;
+					canvas.getContext("2d").drawImage(img, 0, 0, 128, 128);
+					try {
+						modalIconDataUrl = canvas.toDataURL("image/png");
+					} catch {}
+				};
+				img.src = suggestions[0];
+			}
+		});
 
-  // URL → name auto-suggest
-  document.getElementById("fieldUrl").addEventListener("input", (e) => {
-    suggestNameFromUrl(e.target.value);
-  });
+	// URL → name auto-suggest
+	document.getElementById("fieldUrl").addEventListener("input", e => {
+		suggestNameFromUrl(e.target.value);
+	});
 
-  // Extensions
-  document
-    .getElementById("btnInstallExt")
-    .addEventListener("click", installExtension);
-  document.getElementById("extUrlInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") installExtension();
-  });
-  // Quick-install links (uBlock, SponsorBlock examples)
-  document.querySelectorAll(".ext-link").forEach((a) => {
-    a.addEventListener("click", (e) => {
-      e.preventDefault();
-      document.getElementById("extUrlInput").value = a.dataset.id;
-      switchView("extensions");
-      installExtension();
-    });
-  });
+	// Extensions
+	document
+		.getElementById("btnInstallExt")
+		.addEventListener("click", installExtension);
+	document.getElementById("extUrlInput").addEventListener("keydown", e => {
+		if (e.key === "Enter") installExtension();
+	});
+	// Quick-install links
+	document.querySelectorAll(".ext-link").forEach(a => {
+		a.addEventListener("click", e => {
+			e.preventDefault();
+			document.getElementById("extUrlInput").value = a.dataset.id;
+			switchView("extensions");
+			installExtension();
+		});
+	});
 
-  // Search
-  document
-    .getElementById("searchInput")
-    .addEventListener("input", renderLibrary);
+	// Search
+	document
+		.getElementById("searchInput")
+		.addEventListener("input", renderLibrary);
 
-  // Filter
-  document.querySelectorAll(".filter-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".filter-btn")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentFilter = btn.dataset.filter;
-      renderLibrary();
-    });
-  });
+	// Filter
+	document.querySelectorAll(".filter-btn").forEach(btn => {
+		btn.addEventListener("click", () => {
+			document
+				.querySelectorAll(".filter-btn")
+				.forEach(b => b.classList.remove("active"));
+			btn.classList.add("active");
+			currentFilter = btn.dataset.filter;
+			renderLibrary();
+		});
+	});
 
-  // Context menu
-  document.getElementById("ctxLaunch").addEventListener("click", () => {
-    if (contextTarget) launchApp(contextTarget);
-    hideContextMenu();
-  });
-  document.getElementById("ctxEdit").addEventListener("click", () => {
-    if (contextTarget) openModal(contextTarget);
-    hideContextMenu();
-  });
-  document.getElementById("ctxDelete").addEventListener("click", () => {
-    const target = contextTarget;
-    hideContextMenu();
-    if (target) deleteApp(target.id);
-  });
+	// Context menu
+	document.getElementById("ctxLaunch").addEventListener("click", () => {
+		if (contextTarget) launchApp(contextTarget);
+		hideContextMenu();
+	});
+	document.getElementById("ctxEdit").addEventListener("click", () => {
+		if (contextTarget) openModal(contextTarget);
+		hideContextMenu();
+	});
+	document.getElementById("ctxDelete").addEventListener("click", () => {
+		const target = contextTarget;
+		hideContextMenu();
+		if (target) deleteApp(target.id);
+	});
 
-  document.addEventListener("click", (e) => {
-    if (!document.getElementById("contextMenu").contains(e.target))
-      hideContextMenu();
-  });
+	document.addEventListener("click", e => {
+		if (!document.getElementById("contextMenu").contains(e.target))
+			hideContextMenu();
+	});
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      closeModal();
-      hideContextMenu();
-    }
-  });
+	document.addEventListener("keydown", e => {
+		if (e.key === "Escape") {
+			closeModal();
+			hideContextMenu();
+		}
+	});
 }
 
-init().catch((e) => {
-  console.error("init failed:", e);
-  renderLibrary();
+init().catch(e => {
+	console.error("init failed:", e);
+	renderLibrary();
 });
