@@ -1,102 +1,102 @@
 {
-  "name": "webapper",
-  "version": "0.1.0",
-  "description": "Turn any website into a standalone desktop app",
-  "main": "src/main.js",
-  "author": "Rohan-Shah-312003",
-  "scripts": {
-    "start": "electron .",
-    "build:mac": "electron-builder --mac",
-    "build:win": "PYTHON=$(which python3) electron-builder --win",
-    "build:linux": "electron-builder --linux",
-    "build:all": "PYTHON=$(which python3) electron-builder --mac --win --linux",
-    "build:linux:arm64": "electron-builder --linux --arm64",
-    "build:linux:x64": "electron-builder --linux --x64"
-  },
-  "build": {
-    "appId": "com.webapper.app",
-    "productName": "Webapper",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "src/**/*",
-      "assets/**/*"
-    ],
-    "mac": {
-      "category": "public.app-category.productivity",
-      "icon": "assets/icon.icns",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ]
-    },
-    "dmg": {
-      "title": "Webapper",
-      "background": null,
-      "window": {
-        "width": 540,
-        "height": 380
-      }
-    },
-    "win": {
-      "icon": "assets/icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "requestedExecutionLevel": "asInvoker"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Webapper"
-    },
-    "linux": {
-      "icon": "assets/icon.png",
-      "category": "Utility",
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "maintainer": "Webapper <webapper@example.com>",
-      "description": "Turn any website into a standalone desktop app"
-    },
-    "nodeGypRebuild": false,
-    "npmRebuild": false
-  },
-  "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.0.0"
-  }
+	"name": "webapper",
+	"version": "0.1.0",
+	"description": "Turn any website into a standalone desktop app",
+	"main": "src/main.js",
+	"author": "Rohan-Shah-312003",
+	"scripts": {
+		"start": "electron .",
+		"build:mac": "electron-builder --mac",
+		"build:win": "PYTHON=$(which python3) electron-builder --win",
+		"build:linux": "electron-builder --linux",
+		"build:all": "PYTHON=$(which python3) electron-builder --mac --win --linux",
+		"build:linux:arm64": "electron-builder --linux --arm64",
+		"build:linux:x64": "electron-builder --linux --x64"
+	},
+	"build": {
+		"appId": "com.webapper.app",
+		"productName": "Webapper",
+		"directories": {
+			"output": "dist"
+		},
+		"files": [
+			"src/**/*",
+			"assets/**/*"
+		],
+		"mac": {
+			"category": "public.app-category.productivity",
+			"icon": "assets/icon.icns",
+			"target": [
+				{
+					"target": "dmg",
+					"arch": [
+						"x64",
+						"arm64"
+					]
+				},
+				{
+					"target": "zip",
+					"arch": [
+						"x64",
+						"arm64"
+					]
+				}
+			]
+		},
+		"dmg": {
+			"title": "Webapper",
+			"background": null,
+			"window": {
+				"width": 540,
+				"height": 380
+			}
+		},
+		"win": {
+			"icon": "assets/icon.ico",
+			"target": [
+				{
+					"target": "nsis",
+					"arch": [
+						"x64",
+						"ia32"
+					]
+				},
+				{
+					"target": "portable",
+					"arch": [
+						"x64"
+					]
+				}
+			],
+			"requestedExecutionLevel": "asInvoker"
+		},
+		"nsis": {
+			"oneClick": false,
+			"allowToChangeInstallationDirectory": true,
+			"createDesktopShortcut": true,
+			"createStartMenuShortcut": true,
+			"shortcutName": "Webapper"
+		},
+		"linux": {
+			"icon": "assets/icon.png",
+			"category": "Utility",
+			"target": [
+				{
+					"target": "AppImage",
+					"arch": [
+						"x64",
+						"arm64"
+					]
+				}
+			],
+			"maintainer": "Webapper <webapper@example.com>",
+			"description": "Turn any website into a standalone desktop app"
+		},
+		"nodeGypRebuild": false,
+		"npmRebuild": false
+	},
+	"devDependencies": {
+		"electron": "^31.0.0",
+		"electron-builder": "^24.0.0"
+	}
 }

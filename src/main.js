@@ -19,6 +19,12 @@ const {
 	initExtensions,
 	loadExtensionData,
 } = require("./extensions");
+const {
+	PIP_ENTER_SCRIPT,
+	PIP_EXIT_SCRIPT,
+	PIP_SETUP_SCRIPT,
+	pipFocusScript,
+} = require("./pip");
 
 // Platform helpers
 const isMac = process.platform === "darwin";
@@ -700,6 +706,27 @@ function launchWebApp(webApp) {
        ::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.6)}`,
 			)
 			.catch(() => {});
+		siteView.webContents
+			.executeJavaScript(PIP_SETUP_SCRIPT)
+			.catch(() => {});
+	});
+
+	win.on("blur", () => {
+		if (!siteViewAlive()) return;
+		siteView.webContents
+			.executeJavaScript(pipFocusScript(false))
+			.catch(() => {});
+		siteView.webContents
+			.executeJavaScript(PIP_ENTER_SCRIPT)
+			.catch(() => {});
+	});
+
+	win.on("focus", () => {
+		if (!siteViewAlive()) return;
+		siteView.webContents
+			.executeJavaScript(pipFocusScript(true))
+			.catch(() => {});
+		siteView.webContents.executeJavaScript(PIP_EXIT_SCRIPT).catch(() => {});
 	});
 
 	let lastSize = [winW, winH];
