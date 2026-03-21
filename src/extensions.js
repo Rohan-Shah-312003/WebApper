@@ -287,7 +287,7 @@ async function installExtension(storeUrlOrId) {
 	// (content scripts still work, which covers ad blockers & SponsorBlock)
 	const mv3Warning =
 		manifestVersion >= 3
-			? "Manifest V3 — toolbar popup and background scripts are limited, but content scripts (ad blocking, page modification) work fine."
+			? "Manifest V3 may not work correctly in Webapper due to software restrictions."
 			: null;
 
 	// Load into all existing sessions
@@ -324,9 +324,10 @@ function getManifestIconPath(manifest, extDir) {
 }
 
 // Load extension into a session
-function loadExtensionIntoSession(ses, extDir) {
+async function loadExtensionIntoSession(ses, extDir) {
 	try {
 		ses.loadExtension(extDir, { allowFileAccess: true });
+		console.log(`[extension.js] loadExtensionIntoSession`);
 	} catch (err) {
 		console.warn(`Failed to load extension from ${extDir}:`, err.message);
 	}
@@ -335,7 +336,7 @@ function loadExtensionIntoSession(ses, extDir) {
 // Load into default session + all known partitions
 const loadedPartitions = new Set();
 
-function loadExtensionIntoSessions(extDir) {
+async function loadExtensionIntoSessions(extDir) {
 	// Only load into partitions that have active web app sessions
 	for (const partition of loadedPartitions) {
 		try {
@@ -361,6 +362,7 @@ async function loadAllExtensionsIntoPartition(partition) {
 	let alreadyLoaded = new Set();
 	try {
 		const loaded = ses.getAllExtensions();
+		console.log(`[extension.js] loadAllExtensionIntoPartition`);
 		alreadyLoaded = new Set(loaded.map(e => e.id));
 	} catch {}
 	for (const ext of exts) {

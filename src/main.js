@@ -128,16 +128,6 @@ function createMainWindow() {
 	});
 
 	buildAppMenu();
-
-	// for mac - if the window is closed, hide it instead of quitting the app
-	// if (!isMac) {
-	// 	mainWindow.on("close", e => {
-	// 		if (!app.isQuitting && tray && !tray.isDestroyed()) {
-	// 			e.preventDefault();
-	// 			mainWindow.hide();
-	// 		}
-	// 	});
-	// }
 }
 
 // Application menu
@@ -395,7 +385,7 @@ ipcMain.handle("toolbar:getState", (_, id) => {
 		};
 });
 
-ipcMain.handle("toolbar:getInfo", (_, id) => toolbarInfoStore.get(id) || null);
+ipcMain.handle("toolbar:getInfo", (_, id) => toolbarInfoStore.get(id));
 
 ipcMain.handle("platform:get", () => process.platform);
 
@@ -418,8 +408,7 @@ function launchWebApp(webApp) {
 	const winH = webApp.windowHeight || 800;
 
 	applyToPartition(partition);
-
-	// loadAllExtensionsIntoPartition(partition).catch(() => {});
+	// loadAllExtensionsIntoPartition(partition);
 
 	const win = new BrowserWindow({
 		width: winW,
@@ -453,6 +442,10 @@ function launchWebApp(webApp) {
 		platform: process.platform,
 	});
 
+	setTimeout(() => {
+		loadAllExtensionsIntoPartition(partition);
+		console.log(`[main.js] Loaded extensions into partition ${partition}`);
+	}, 2000);
 	win.loadFile(path.join(__dirname, "toolbar", "toolbar.html"), {
 		query: { appId: webApp.id },
 	});
@@ -467,11 +460,15 @@ function launchWebApp(webApp) {
 		},
 	});
 
+	// Load extensions into the new partition.
+	// We do this with a delay to allow the window to load and show faster,
+	// And because extensions are not needed immediately on launch.
+	// setTimeout(() => loadAllExtensionsIntoPartition(partition), 2000);
+
 	win.contentView.addChildView(siteView);
 	siteViewMap.set(webApp.id, siteView);
 	siteView.setBackgroundColor("#1a1a1f");
 
-	setTimeout(() => loadAllExtensionsIntoPartition(partition), 3000);
 	function layout() {
 		const [w, h] = win.getContentSize();
 		siteView.setBounds({
