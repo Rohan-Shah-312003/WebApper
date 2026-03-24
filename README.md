@@ -39,7 +39,7 @@ Each app is completely isolated. Log into your work Google account in Gmail and 
 Need an app that never saves cookies or login sessions? One click and it's gone when you close the window.
 
 **Chrome extension support**
-Install uBlock Origin, SponsorBlock, or any Chrome extension and it applies across all your web apps automatically.
+Install uBlock Origin, SponsorBlock, or any Chromium based extension and it applies across all your web apps automatically.
 
 **Built-in ad blocking**
 Ads and trackers are blocked by default across every app you create. No setup needed.
@@ -59,7 +59,7 @@ Window sizes, positions, logins — everything is saved. Your apps pick up exact
 
 ### 1. Install Webapper
 
-Download the installer for your platform above and open it. On macOS, drag Webapper to your Applications folder.
+Download the installer for your platform above and open it. 
 
 ### 2. Create your first app
 
