@@ -408,7 +408,6 @@ function launchWebApp(webApp) {
 	const winH = webApp.windowHeight || 800;
 
 	applyToPartition(partition);
-	// loadAllExtensionsIntoPartition(partition);
 
 	const win = new BrowserWindow({
 		width: winW,
@@ -442,13 +441,17 @@ function launchWebApp(webApp) {
 		platform: process.platform,
 	});
 
-	setTimeout(() => {
-		loadAllExtensionsIntoPartition(partition);
-		console.log(`[main.js] Loaded extensions into partition ${partition}`);
-	}, 2000);
 	win.loadFile(path.join(__dirname, "toolbar", "toolbar.html"), {
 		query: { appId: webApp.id },
 	});
+
+	// Load extensions into the new partition. [IMPORTANT AFTER TOOLBAR TO LET THE SITE LOAD INDEPENDENTLY ELSE STOPPING SITEVIEW FROM LOADING]
+	// We do this with a delay to allow the window to load and show faster,
+	// And because extensions are not needed immediately on launch.
+	setTimeout(() => {
+		loadAllExtensionsIntoPartition(partition);
+		console.log(`[main.js] Loaded extensions into partition ${partition}`);
+	}, 3000);
 
 	const siteView = new WebContentsView({
 		webPreferences: {
@@ -459,11 +462,6 @@ function launchWebApp(webApp) {
 			webSecurity: true,
 		},
 	});
-
-	// Load extensions into the new partition.
-	// We do this with a delay to allow the window to load and show faster,
-	// And because extensions are not needed immediately on launch.
-	// setTimeout(() => loadAllExtensionsIntoPartition(partition), 2000);
 
 	win.contentView.addChildView(siteView);
 	siteViewMap.set(webApp.id, siteView);
@@ -547,7 +545,7 @@ function launchWebApp(webApp) {
 
 	function siteViewAlive() {
 		try {
-			return !!(
+			return (
 				siteView &&
 				siteView.webContents &&
 				!siteView.webContents.isDestroyed()
@@ -570,6 +568,7 @@ function launchWebApp(webApp) {
 		"claude.ai",
 		"openai.com",
 	];
+
 	function isAuthHost(url) {
 		try {
 			const h = new URL(url).hostname.replace(/^www\./, "");
@@ -578,6 +577,7 @@ function launchWebApp(webApp) {
 			return false;
 		}
 	}
+
 	function isSameOrigin(url) {
 		try {
 			const base = new URL(webApp.url);
@@ -590,6 +590,7 @@ function launchWebApp(webApp) {
 			return false;
 		}
 	}
+
 	function mustBePopup(url, disposition) {
 		return (
 			disposition === "new-window" ||
@@ -608,6 +609,7 @@ function launchWebApp(webApp) {
 		}
 		activePopups.clear();
 	}
+
 	function onPopupClosed() {
 		if (oauthComplete) return;
 		if (activePopups.size === 0)
@@ -617,6 +619,7 @@ function launchWebApp(webApp) {
 				} catch {}
 			}, 600);
 	}
+
 	function watchPopup(pw) {
 		pw.webContents.on("did-navigate", (_, u) => {
 			try {
@@ -639,6 +642,7 @@ function launchWebApp(webApp) {
 			} catch {}
 		});
 	}
+
 	const popupOpts = {
 		width: 520,
 		height: 700,
@@ -740,6 +744,7 @@ function launchWebApp(webApp) {
 			} catch {}
 		}
 	});
+
 	win.on("closed", () => {
 		const all = loadApps();
 		const idx = all.findIndex(a => a.id === webApp.id);
@@ -764,7 +769,7 @@ function launchWebApp(webApp) {
 	launchedWindows.set(webApp.id, win);
 }
 
-// ── App-management IPC ─────────────────────────────────────────────────────────
+// App-management IPC
 ipcMain.handle("apps:list", () => loadApps());
 ipcMain.handle("apps:save", (_, apps) => {
 	saveApps(apps);
@@ -820,7 +825,7 @@ ipcMain.handle("dialog:pickImage", async () => {
 	return `data:${mime};base64,${data.toString("base64")}`;
 });
 
-// ── Extension IPC ────────────────────────────────────────────────────────────
+// Extension IPC
 ipcMain.handle("extensions:list", () => loadExtensionData());
 
 ipcMain.handle("extensions:install", async (_, urlOrId) => {
@@ -841,9 +846,9 @@ ipcMain.handle("extensions:remove", async (_, id) => {
 	}
 });
 
-// ── Lifecycle ──────────────────────────────────────────────────────────────────
+// Lifecycle
 app.whenReady().then(async () => {
-	applyToDefaultSession();
+	applyToDefaultSession(); // apply adblocker to default session
 
 	// Init extensions first (validates dirs, patches backgrounds) — this is
 	// fast and purely synchronous file I/O, no session.loadExtension calls.

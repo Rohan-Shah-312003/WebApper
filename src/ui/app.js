@@ -1,11 +1,11 @@
-// ── State ──────────────────────────────────────────────────────────────────────
+// State
 let apps = [];
 let editingId = null;
 let currentFilter = "all";
 let contextTarget = null;
 let currentPlatform = "darwin"; // updated after init
 
-// ── Gallery data ───────────────────────────────────────────────────────────────
+// Gallery data
 const GALLERY = [
 	{
 		name: "Gmail",
@@ -89,7 +89,7 @@ const GALLERY = [
 	{ name: "Plex", url: "https://app.plex.tv", icon: "🎬", mode: "standard" },
 ];
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// Helpers
 function uid() {
 	return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
@@ -112,7 +112,7 @@ function modeClass(mode) {
 	);
 }
 
-// ── Platform-aware titlebar height ────────────────────────────────────────────
+// Platform-aware titlebar height
 function applyTitlebarHeight(platform) {
 	// macOS hiddenInset overlays ~28px of content; on Windows/Linux the native
 	// system title bar sits outside the client area so no extra padding is needed.
@@ -120,7 +120,7 @@ function applyTitlebarHeight(platform) {
 	document.documentElement.style.setProperty("--titlebar-h", h);
 }
 
-// ── Render ─────────────────────────────────────────────────────────────────────
+// Render
 function renderLibrary() {
 	const grid = document.getElementById("appGrid");
 	const empty = document.getElementById("emptyState");
