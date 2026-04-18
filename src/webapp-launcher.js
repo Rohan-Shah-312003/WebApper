@@ -23,21 +23,20 @@ const {
 const { getTitleBarOptions } = require("./windows");
 const { createPopupManager } = require("./popup-manager");
 
-// Fix #1: Import BLOCKED_DOMAINS once at module load, not inside every call.
 const { BLOCKED_DOMAINS } = require("./adblocker");
 
-function isAdDomain(url) {
-	try {
-		const host = new URL(url).hostname.replace(/^www\./, "");
-		if (BLOCKED_DOMAINS.has(host)) return true;
-		const parts = host.split(".");
-		for (let i = 1; i < parts.length - 1; i++)
-			if (BLOCKED_DOMAINS.has(parts.slice(i).join("."))) return true;
-		return false;
-	} catch {
-		return false;
-	}
-}
+// function isAdDomain(url) {
+// 	try {
+// 		const host = new URL(url).hostname.replace(/^www\./, "");
+// 		if (BLOCKED_DOMAINS.has(host)) return true;
+// 		const parts = host.split(".");
+// 		for (let i = 1; i < parts.length - 1; i++)
+// 			if (BLOCKED_DOMAINS.has(parts.slice(i).join("."))) return true;
+// 		return false;
+// 	} catch {
+// 		return false;
+// 	}
+// }
 
 function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 	if (launchedWindows.has(webApp.id)) {
@@ -88,6 +87,7 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 		mode: webApp.mode || "standard",
 		iconDataUrl: webApp.iconDataUrl || null,
 		platform: process.platform,
+		webContentsId: win.webContents.id,
 	});
 
 	win.loadFile(path.join(__dirname, "toolbar", "toolbar.html"), {
@@ -167,6 +167,7 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 			? siteView.webContents.getTitle()
 			: "";
 		const state = {
+			id: webApp.id,
 			canBack: siteViewAlive() && siteView.webContents.canGoBack(),
 			canForward: siteViewAlive() && siteView.webContents.canGoForward(),
 			loading: siteViewAlive() && siteView.webContents.isLoading(),
@@ -195,6 +196,7 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 	win.webContents.on("did-finish-load", () => {
 		toolbarReady = true;
 		const state = pendingState || {
+			id: webApp.id,
 			canBack: siteViewAlive() && siteView.webContents.canGoBack(),
 			canForward: siteViewAlive() && siteView.webContents.canGoForward(),
 			loading: siteViewAlive() && siteView.webContents.isLoading(),
@@ -265,8 +267,6 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 	});
 
 	win.on("closed", () => {
-		// Fix #4: Destroy siteView here, not in 'close', so Electron's own
-		// teardown has already completed and there is no race condition.
 		if (siteViewAlive()) {
 			try {
 				if (win.contentView) win.contentView.removeChildView(siteView);

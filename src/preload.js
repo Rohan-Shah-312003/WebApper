@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld("extensions", {
   remove: (id) => ipcRenderer.invoke("extensions:remove", id),
 });
 
-contextBridge.exposeInMainWorld("toolbar", {
+contextBridge.exposeInMainWorld("toolbarAPI", {
   getInfo: (id) => ipcRenderer.invoke("toolbar:getInfo", id),
   getState: (id) => ipcRenderer.invoke("toolbar:getState", id),
   reload: (id) => ipcRenderer.send("toolbar:reload", id),
@@ -25,4 +25,5 @@ contextBridge.exposeInMainWorld("toolbar", {
   forward: (id) => ipcRenderer.send("toolbar:forward", id),
   onState: (cb) => ipcRenderer.on("toolbar:state", (_, d) => cb(d)),
   getPlatform: () => ipcRenderer.invoke("platform:get"),
+  log: (...args) => ipcRenderer.send("toolbar:log", ...args),
 });

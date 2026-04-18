@@ -40,7 +40,6 @@ const { registerToolbarIpc } = require("./toolbar-ipc");
 const { registerAppsIpc } = require("./apps-ipc");
 
 // IPC registration
-registerToolbarIpc();
 registerAppsIpc(
 	wa =>
 		launchWebApp(wa, {
@@ -50,6 +49,13 @@ registerAppsIpc(
 	getMainWindow,
 );
 
+registerToolbarIpc();
+
+app.on("web-contents-created", (event, contents) => {
+	contents.on("console-message", (e, level, message, line, sourceId) => {
+		console.log(`[RENDERER CONSOLE] ${message} (${sourceId}:${line})`);
+	});
+});
 // Lifecycle
 app.whenReady().then(async () => {
 	applyToDefaultSession();

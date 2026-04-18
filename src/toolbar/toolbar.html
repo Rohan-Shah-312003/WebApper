@@ -2,10 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta
-			http-equiv="Content-Security-Policy"
-			content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'"
-		/>
+
 		<title>Toolbar</title>
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link
@@ -59,46 +56,6 @@
 			<span class="badge" id="badge"></span>
 		</div>
 
-		<script>
-			const ID = new URLSearchParams(location.search).get("appId") || "";
-			const backBtn = document.getElementById("back");
-			const fwdBtn = document.getElementById("fwd");
-			const reloadBtn = document.getElementById("reload");
-			const reloadIcon = document.getElementById("ri");
-			const titleEl = document.getElementById("title");
-			const bar = document.getElementById("bar");
-
-			// Adapt left padding based on platform:
-			// macOS hiddenInset needs 80px to clear traffic-light buttons.
-			// Windows/Linux have a native title bar above; no offset needed.
-			window.toolbar.getPlatform().then(platform => {
-				if (platform !== "darwin") {
-					bar.style.paddingLeft = "10px";
-				}
-			});
-
-			function applyState(s) {
-				if (!s) return;
-				if (s.canBack !== undefined) backBtn.disabled = !s.canBack;
-				if (s.canForward !== undefined) fwdBtn.disabled = !s.canForward;
-				if (s.loading === true) reloadIcon.classList.add("spin");
-				else if (s.loading === false)
-					reloadIcon.classList.remove("spin");
-				if (s.title) titleEl.textContent = s.title;
-			}
-
-			backBtn.addEventListener("click", () => window.toolbar.back(ID));
-			fwdBtn.addEventListener("click", () => window.toolbar.forward(ID));
-			reloadBtn.addEventListener("click", () =>
-				window.toolbar.reload(ID),
-			);
-
-			window.toolbar.onState(applyState);
-
-			window.toolbar.getInfo(ID).then(info => {
-				if (info) titleEl.textContent = info.name;
-			});
-			window.toolbar.getState(ID).then(applyState);
-		</script>
+		<script src="./toolbar.js"></script>
 	</body>
 </html>
