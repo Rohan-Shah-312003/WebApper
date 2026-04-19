@@ -155,15 +155,12 @@ async function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 
 	function push(extra = {}) {
 		if (win.isDestroyed()) return;
-		const pageTitle = siteViewAlive()
-			? siteView.webContents.getTitle()
-			: "";
 		const state = {
 			id: webApp.id,
 			canBack: siteViewAlive() && siteView.webContents.canGoBack(),
 			canForward: siteViewAlive() && siteView.webContents.canGoForward(),
 			loading: siteViewAlive() && siteView.webContents.isLoading(),
-			title: pageTitle || webApp.name,
+			title: webApp.name,
 			...extra,
 		};
 		if (!toolbarReady) {
@@ -179,10 +176,9 @@ async function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 	);
 	siteView.webContents.on("did-start-loading", () => push({ loading: true }));
 	siteView.webContents.on("did-stop-loading", () => push({ loading: false }));
-	siteView.webContents.on("page-title-updated", (_, t) => {
-		const title = t || webApp.name;
-		push({ title });
-		if (!win.isDestroyed()) win.setTitle(title);
+	siteView.webContents.on("page-title-updated", () => {
+		push({ title: webApp.name });
+		if (!win.isDestroyed()) win.setTitle(webApp.name);
 	});
 
 	win.webContents.on("did-finish-load", () => {
@@ -192,9 +188,7 @@ async function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 			canBack: siteViewAlive() && siteView.webContents.canGoBack(),
 			canForward: siteViewAlive() && siteView.webContents.canGoForward(),
 			loading: siteViewAlive() && siteView.webContents.isLoading(),
-			title:
-				(siteViewAlive() && siteView.webContents.getTitle()) ||
-				webApp.name,
+			title: webApp.name,
 		};
 		pendingState = null;
 		try {
