@@ -202,13 +202,27 @@ function extractExtensionId(input) {
 // Wrap chrome.contextMenus and other unsupported APIs in existence checks
 // so the background script doesn't throw on startup.
 function patchExtensionForElectron(extDir) {
-	const bgPath = path.join(extDir, "background.js");
-	if (!fs.existsSync(bgPath)) return;
-	try {
-		let bg = fs.readFileSync(bgPath, "utf8");
-		// Only patch if not already patched
-		if (bg.includes("__webapper_patched__")) return;
-		const patch = `
+	const allJsFiles = [];
+	function walk(dir) {
+		if (!fs.existsSync(dir)) return;
+		const entries = fs.readdirSync(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const full = path.join(dir, entry.name);
+			if (entry.isDirectory() && entry.name !== '_locales' && entry.name !== 'images') {
+				walk(full);
+			} else if (entry.isFile() && entry.name.endsWith('.js')) {
+				allJsFiles.push(full);
+			}
+		}
+	}
+	walk(extDir);
+
+	for (const bgPath of allJsFiles) {
+		try {
+			let bg = fs.readFileSync(bgPath, "utf8");
+			// Only patch if not already patched
+			if (bg.includes("__webapper_patched__")) continue;
+			const patch = `
 // __webapper_patched__
 // Stub out Chrome APIs that don't exist in Electron to prevent startup errors
 if (typeof chrome !== "undefined") {
@@ -217,11 +231,17 @@ if (typeof chrome !== "undefined") {
   if (!chrome.action) chrome.action = { setIcon:()=>{}, setBadgeText:()=>{}, setBadgeBackgroundColor:()=>{}, onClicked:{ addListener:()=>{} } };
   if (!chrome.webNavigation) chrome.webNavigation = { onCommitted:{ addListener:()=>{} }, onCompleted:{ addListener:()=>{} } };
   if (!chrome.notifications) chrome.notifications = { create:()=>{}, clear:()=>{}, onClicked:{ addListener:()=>{} } };
+  if (!chrome.tabs) chrome.tabs = { onUpdated:{ addListener:()=>{} }, onCreated:{ addListener:()=>{} }, onRemoved:{ addListener:()=>{} }, onActivated:{ addListener:()=>{} }, query:(q,cb)=>cb&&cb([]), create:()=>{} };
+  if (!chrome.windows) chrome.windows = { onCreated:{ addListener:()=>{} }, onRemoved:{ addListener:()=>{} }, onFocusChanged:{ addListener:()=>{} }, getAll:(cb)=>cb&&cb([]), getCurrent:(cb)=>cb&&cb({}) };
+  if (chrome.storage && !chrome.storage.sync) {
+      chrome.storage.sync = chrome.storage.local || { get:(k,cb)=>cb&&cb({}), set:(v,cb)=>cb&&cb(), remove:(k,cb)=>cb&&cb(), clear:(cb)=>cb&&cb() };
+  }
 }
 `;
-		fs.writeFileSync(bgPath, patch + bg);
-	} catch (e) {
-		console.warn("Could not patch background.js:", e.message);
+			fs.writeFileSync(bgPath, patch + bg);
+		} catch (e) {
+			console.warn("Could not patch script:", bgPath, e.message);
+		}
 	}
 }
 
@@ -276,9 +296,31 @@ async function installExtension(storeUrlOrId) {
 		manifest = JSON.parse(fs.readFileSync(mPath, "utf8"));
 	} catch {}
 
-	const extName = manifest.name?.replace(/__MSG_\w+__/, "").trim() || id;
-	const extDesc =
-		manifest.description?.replace(/__MSG_\w+__/, "").trim() || "";
+	let extName = manifest.name || id;
+	let extDesc = manifest.description || "";
+	
+	// Resolve localized messages
+	if (extName.startsWith("__MSG_") || extDesc.startsWith("__MSG_")) {
+		try {
+			const defaultLocale = manifest.default_locale || "en";
+			const msgPath = path.join(extDestDir, "_locales", defaultLocale, "messages.json");
+			if (fs.existsSync(msgPath)) {
+				const messages = JSON.parse(fs.readFileSync(msgPath, "utf8"));
+				const resolveMsg = (str) => {
+					if (!str || !str.startsWith("__MSG_")) return str;
+					const key = str.replace(/__MSG_(.+)__/, "$1");
+					return messages[key]?.message || str;
+				};
+				extName = resolveMsg(extName);
+				extDesc = resolveMsg(extDesc);
+			}
+		} catch (e) {
+			console.warn("Failed to parse locales:", e.message);
+		}
+	}
+	
+	extName = extName.replace(/__MSG_\w+__/, "").trim() || id;
+	extDesc = extDesc.replace(/__MSG_\w+__/, "").trim() || "";
 	const extVersion = manifest.version || "?";
 	const manifestVersion = manifest.manifest_version || 2;
 	const iconPath = getManifestIconPath(manifest, extDestDir);

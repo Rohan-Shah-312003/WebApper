@@ -38,7 +38,7 @@ const { BLOCKED_DOMAINS } = require("./adblocker");
 // 	}
 // }
 
-function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
+async function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 	if (launchedWindows.has(webApp.id)) {
 		const existing = launchedWindows.get(webApp.id);
 		if (!existing.isDestroyed()) {
@@ -94,16 +94,6 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 		query: { appId: webApp.id },
 	});
 
-	// Fix #6: Store the timeout handle so it can be cancelled if the window
-	// closes before the 3-second delay elapses.
-	let extensionLoadTimeout = setTimeout(() => {
-		extensionLoadTimeout = null;
-		loadAllExtensionsIntoPartition(partition);
-		console.log(
-			`[webapp-launcher] Loaded extensions into partition ${partition}`,
-		);
-	}, 3000);
-
 	const siteView = new WebContentsView({
 		webPreferences: {
 			preload: path.join(__dirname, "preload.js"),
@@ -118,8 +108,6 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 	siteViewMap.set(webApp.id, siteView);
 	siteView.setBackgroundColor("#1a1a1f");
 
-	// Fix #5: Track lastSize on every resize so the value is always fresh,
-	// even when the window was maximised at close time.
 	let lastSize = [winW, winH];
 	win.on("resize", () => {
 		try {
@@ -138,6 +126,10 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 		});
 	}
 	layout();
+
+	// Load extensions into this partition BEFORE loading the URL so content scripts apply to the first page load.
+	await loadAllExtensionsIntoPartition(partition);
+	console.log(`[webapp-launcher] Loaded extensions into partition ${partition}`);
 
 	siteView.webContents.loadURL(webApp.url);
 
@@ -256,15 +248,8 @@ function launchWebApp(webApp, { updateTrayMenu, updateDockMenu } = {}) {
 		siteView.webContents.executeJavaScript(PIP_EXIT_SCRIPT).catch(() => {});
 	});
 
-	// Fix #6: Cancel the extension-load timeout if the window closes early.
 	// Fix #4: siteView teardown moved to 'closed' (after window is fully gone)
 	//         to avoid racing with Electron's own teardown during 'close'.
-	win.on("close", () => {
-		if (extensionLoadTimeout !== null) {
-			clearTimeout(extensionLoadTimeout);
-			extensionLoadTimeout = null;
-		}
-	});
 
 	win.on("closed", () => {
 		if (siteViewAlive()) {

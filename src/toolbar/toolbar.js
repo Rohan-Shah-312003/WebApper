@@ -23,7 +23,9 @@ const bar = document.getElementById("bar");
 // macOS hiddenInset needs 80px to clear traffic-light buttons.
 // Windows/Linux have a native title bar above; no offset needed.
 window.toolbarAPI.getPlatform().then(platform => {
-    if (platform !== "darwin") {
+    if (platform === "darwin") {
+        bar.style.paddingLeft = "80px";
+    } else {
         bar.style.paddingLeft = "10px";
     }
 }).catch(e => window.toolbarAPI.log("GetPlatform Error:", e.message));
