@@ -1,6 +1,6 @@
 {
 	"name": "webapper",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Turn any website into a standalone desktop app",
 	"main": "src/main.js",
 	"author": "Rohan-Shah-312003",
